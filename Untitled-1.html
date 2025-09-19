@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Avatar 3D + ElevenLabs (HTML+JS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { margin:0; height:100%; background:#0b0f1a; color:#eaeef5; font-family:system-ui, Segoe UI, Roboto, sans-serif; }
+    header { padding:12px 16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2840; flex-wrap:wrap; }
+    button { padding:10px 14px; border-radius:10px; border:0; background:#2a60ff; color:#fff; cursor:pointer; }
+    button.secondary { background:#27314e; }
+    label { font-size:12px; opacity:.9; display:flex; gap:6px; align-items:center }
+    select { background:#0f1528; color:#cfe0ff; border:1px solid #263359; border-radius:8px; padding:8px; }
+    input[type=range]{ width:120px }
+    #stage { width:100%; height:calc(100% - 140px); display:block; }
+    #status { margin-left:auto; opacity:.85; }
+    #debugPanel {
+      position:fixed; right:10px; bottom:10px; background:#0b1224d0; border:1px solid #243055;
+      padding:8px 10px; border-radius:10px; font:12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color:#aecdff; pointer-events:none; max-width: 50ch; white-space: pre; user-select: text;
+    }
+  </style>
+
+  <!-- es-module-shims (sin async) -->
+  <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+
+  <!-- Import map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "livekit-client": "https://esm.sh/livekit-client@2",
+      "tslib": "https://esm.sh/tslib@2"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <button id="btnConnect">Conectar (mic)</button>
+    <button id="btnDisconnect" class="secondary">Desconectar</button>
+
+    <label>Mic:
+      <select id="micSelect" title="Seleccionar micrófono"></select>
+    </label>
+
+    <label>Morph:
+      <select id="morphSelect" title="Blendshape para boca"></select>
+    </label>
+
+    <label>Jaw bone:
+      <select id="boneSelect" title="Hueso de mandíbula"></select>
+    </label>
+
+    <!-- Controles de labios -->
+    <div id="tune" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label>Gain <input id="uiGain" type="range" min="0.5" max="5" step="0.05" value="2.6"></label>
+      <label>MaxAngle° <input id="uiMaxAngle" type="range" min="8" max="35" step="1" value="24"></label>
+      <label>Gate <input id="uiGate" type="range" min="0" max="0.20" step="0.005" value="0.03"></label>
+      <label>Attack <input id="uiAttack" type="range" min="0.05" max="0.95" step="0.05" value="0.55"></label>
+      <label>Release <input id="uiRelease" type="range" min="0.05" max="0.95" step="0.05" value="0.25"></label>
+    </div>
+
+    <span id="status">desconectado</span>
+  </header>
+
+  <canvas id="stage"></canvas>
+  <div id="debugPanel"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+    import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@0.6.2/dist/lib.module.js';
+
+    // --- CONFIG ---
+    const AGENT_ID = 'agent_0601k5bpbdwyfwmr4qhwgxvfcn9m';
+    const WP_BASE  = 'https://test-ai.garabatoweb.com';
+    const FBX_URL  = './P1_v02.fbx';
+    const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
+
+    // Fuerzas opcionales para eje/signo de mandíbula (ajusta si abre al revés)
+    const JAW_AXIS_HINT = null;   // 'x' | 'y' | 'z' | null
+    const JAW_SIGN_HINT = null;   // +1 | -1 | null
+
+    const DEBUG = true;
+    const dPanel = document.getElementById('debugPanel');
+    const statusEl = document.getElementById('status');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const micSelect = document.getElementById('micSelect');
+    const morphSelect = document.getElementById('morphSelect');
+    const boneSelect  = document.getElementById('boneSelect');
+    const uiGain = document.getElementById('uiGain');
+    const uiMaxAngle = document.getElementById('uiMaxAngle');
+    const uiGate = document.getElementById('uiGate');
+    const uiAttack = document.getElementById('uiAttack');
+    const uiRelease = document.getElementById('uiRelease');
+
+    function dbg(...a){ if (DEBUG) console.log('[DBG]', ...a); }
+    function setPanel(s){ dPanel.textContent = s; }
+
+    // Parámetros de lipsync (modificables con sliders)
+    let GAIN = +uiGain.value;
+    let MAX_ANGLE_DEG = +uiMaxAngle.value;
+    let GATE = +uiGate.value;
+    let ATTACK = +uiAttack.value;
+    let RELEASE = +uiRelease.value;
+    let GAMMA = 0.70;  // curva: <1 = más sensible a niveles bajos
+
+    uiGain.addEventListener('input',   e=> GAIN = +e.target.value);
+    uiMaxAngle.addEventListener('input', e=> MAX_ANGLE_DEG = +e.target.value);
+    uiGate.addEventListener('input',   e=> GATE = +e.target.value);
+    uiAttack.addEventListener('input', e=> ATTACK = +e.target.value);
+    uiRelease.addEventListener('input',e=> RELEASE = +e.target.value);
+
+    // --- ESCENA 3D ---
+    const canvas = document.getElementById('stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 2, 0.1, 100);
+    camera.position.set(0,1.6,2.8);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(2,3,4); scene.add(key);
+
+    function onResize(){
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || (window.innerHeight - 140);
+      renderer.setSize(w,h,false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    addEventListener('resize', onResize); onResize();
+
+    function disableFrustumCulling(root){
+      root.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    }
+
+    function fillSelect(sel, items, getVal = x=>x, getTxt = x=>x) {
+      sel.innerHTML = '';
+      for (const it of items) {
+        const opt = document.createElement('option');
+        opt.value = getVal(it);
+        opt.textContent = getTxt(it);
+        sel.appendChild(opt);
+      }
+    }
+    function caseIncludes(str, needle){
+      return (str||'').toLowerCase().includes((needle||'').toLowerCase());
+    }
+
+    // --- AVATAR / HUESOS & MORPHS ---
+    let avatar;
+    let mouthTargetName = null; // { mesh, key } si hay blendshape
+    let jawBone = null;         // THREE.Bone si animamos hueso
+    let headBone = null;        // para idle/nodding
+    let jawRestQuat = null;
+    let headRestQuat = null;
+    let skeletonHelper = null;
+    let showHelper = false;
+
+    // Candidatos ampliados
+    const MORPH_CANDIDATES = [
+      'MouthOpen','mouthopen','Mouth_Open','mouth_open','jawOpen','JAWOPEN',
+      'AA','A','Ah','ARKit.jawOpen','viseme_aa','viseme_ah','vrc.v_aa','vrc.v_oh',
+      'O','Oh','MouthO','Mouth_O','open','openMouth','口開','あ'
+    ];
+    const JAW_BONES  = [
+      'CTRL_JAW','ROT_MOUTH','Jaw','lowerjaw','Mandible','Mouth','Chin',
+      'DEF-jaw','J_Jaw','jaw_def','jaw_01','jaw','jawBone','Bip01 Jaw','RIG-Jaw'
+    ];
+    const HEAD_BONES = ['CTRL_HEAD','Head','Neck','head_ctrl','Head_ctrl'];
+
+    const loader = new FBXLoader();
+    loader.load(
+      FBX_URL,
+      (fbx)=>{
+        avatar = fbx;
+        avatar.scale.setScalar(0.01);
+        disableFrustumCulling(avatar);
+        scene.add(avatar);
+
+        // MORPHS: recolecta todos
+        const morphEntries = []; // [{mesh, key}]
+        avatar.traverse(obj=>{
+          if (obj.isMesh && obj.morphTargetDictionary) {
+            for (const key of Object.keys(obj.morphTargetDictionary)) {
+              morphEntries.push({ mesh: obj, key });
+            }
+          }
+        });
+        // auto-match de morph
+        mouthTargetName = null;
+        for (const cand of MORPH_CANDIDATES) {
+          const found = morphEntries.find(e => caseIncludes(e.key, cand));
+          if (found) { mouthTargetName = found; break; }
+        }
+        // llena selector morph
+        fillSelect(morphSelect, morphEntries, e=>`${e.mesh.uuid}::${e.key}`, e=>`${e.mesh.name||'mesh'} / ${e.key}`);
+        if (mouthTargetName) {
+          morphSelect.value = `${mouthTargetName.mesh.uuid}::${mouthTargetName.key}`;
+        }
+        morphSelect.addEventListener('change', () => {
+          const [uuid, key] = morphSelect.value.split('::');
+          const found = morphEntries.find(e => e.mesh.uuid === uuid && e.key === key);
+          mouthTargetName = found || null;
+          console.log('[morph] seleccionado:', mouthTargetName?.key || '—');
+        });
+
+        // HUESOS: recolecta todos y auto-match de mandíbula/cabeza
+        const boneEntries = [];
+        avatar.traverse(obj=>{ if (obj.isBone) boneEntries.push(obj); });
+
+        jawBone = null;
+        for (const cand of JAW_BONES) {
+          const b = boneEntries.find(bn => caseIncludes(bn.name, cand));
+          if (b) { jawBone = b; break; }
+        }
+        headBone = boneEntries.find(bn => HEAD_BONES.some(c => caseIncludes(bn.name, c))) || null;
+
+        if (jawBone)  jawRestQuat  = jawBone.quaternion.clone();
+        if (headBone) headRestQuat = headBone.quaternion.clone();
+
+        // llena selector de huesos
+        fillSelect(boneSelect, boneEntries, b=>b.uuid, b=>b.name || b.uuid);
+        if (jawBone) boneSelect.value = jawBone.uuid;
+        boneSelect.addEventListener('change', () => {
+          const b = boneEntries.find(x => x.uuid === boneSelect.value);
+          jawBone = b || null;
+          jawRestQuat = jawBone ? jawBone.quaternion.clone() : null;
+          console.log('[jawBone] seleccionado:', jawBone?.name || '—');
+        });
+
+        // logs útiles
+        const allBones = boneEntries.map(b=>b.name);
+        const allMorphs = morphEntries.map(m=>m.key);
+        console.log('[Avatar] auto:', {
+          mouthTarget: mouthTargetName?.key || '—',
+          jawBone: jawBone?.name || '—',
+          headBone: headBone?.name || '—'
+        });
+        if (!mouthTargetName) console.log('[Morphs disponibles]', allMorphs);
+        if (!jawBone) console.log('[Bones disponibles]', allBones);
+
+        // helper
+        skeletonHelper = new THREE.SkeletonHelper(avatar);
+        skeletonHelper.visible = false;
+        scene.add(skeletonHelper);
+      },
+      undefined,
+      (err)=> console.error('FBX load error:', err)
+    );
+
+    // Toggle helper con D
+    window.addEventListener('keydown', (e)=>{
+      if (e.key.toLowerCase() === 'd' && skeletonHelper) {
+        showHelper = !showHelper;
+        skeletonHelper.visible = showHelper;
+        dbg('SkeletonHelper:', showHelper ? 'ON' : 'OFF');
+      }
+    });
+
+    // --- RENDER & ANIMS ---
+    const clock = new THREE.Clock();
+    let levelOut = 0, levelIn = 0, currentLevel = 0; // 0..1 del SDK
+    let jawOpenSmoothed = 0;
+    let lastAppliedAngle = 0, lastAxis = '-';
+
+    function inferJawAxisAndSign(name){
+      const n = (name||'').toLowerCase();
+      if (n.includes('ctrl_jaw') || n === 'jaw' || n.includes('lowerjaw')) return { axis:'x', sign:-1 };
+      if (n.includes('rot_mouth')) return { axis:'z', sign:-1 };
+      return { axis:'x', sign:-1 };
+    }
+
+    function applyJawOpen(open01){
+      if (!jawBone) return;
+      const clamped = Math.min(Math.max(open01, 0), 1);
+      const eased = Math.pow(clamped, 0.9);
+      const angle = eased * THREE.MathUtils.degToRad(MAX_ANGLE_DEG);
+
+      jawBone.quaternion.copy(jawRestQuat);
+
+      let { axis, sign } = inferJawAxisAndSign(jawBone.name);
+      if (JAW_AXIS_HINT) axis = JAW_AXIS_HINT;
+      if (JAW_SIGN_HINT) sign = JAW_SIGN_HINT;
+
+      const q = new THREE.Quaternion();
+      if (axis === 'x') q.setFromAxisAngle(new THREE.Vector3(1,0,0), sign * angle);
+      else if (axis === 'y') q.setFromAxisAngle(new THREE.Vector3(0,1,0), sign * angle);
+      else q.setFromAxisAngle(new THREE.Vector3(0,0,1), sign * angle);
+
+      jawBone.quaternion.multiply(q);
+      jawBone.updateMatrixWorld(true);
+
+      lastAppliedAngle = angle * (sign || 1);
+      lastAxis = axis;
+    }
+
+    function updateCurrentLevel(){
+      currentLevel = Math.min(1, Math.max(levelOut, levelIn * 0.9));
+    }
+
+    (function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+
+      const t = clock.getElapsedTime();
+
+      // Idle cabeza + micro-nodding
+      if (headBone && headRestQuat) {
+        headBone.quaternion.copy(headRestQuat);
+        const swayZ = Math.sin(t * 0.6) * 0.03;
+        const swayY = Math.sin(t * 0.4) * 0.02;
+        const nod   = (currentLevel || 0) * 0.12;
+
+        const qIdleZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),  swayZ);
+        const qIdleY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),  swayY);
+        const qNodX  = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),  nod);
+
+        headBone.quaternion.multiply(qIdleZ).multiply(qIdleY).multiply(qNodX);
+        headBone.updateMatrixWorld(true);
+      }
+
+      // LIPSYNC (volumen → apertura)
+      const level = Math.max(0, (currentLevel || 0) - GATE);
+      let boosted = Math.pow(level * GAIN, GAMMA);
+      const targetOpen = Math.min(boosted, mouthTargetName ? 1.25 : 1.0);
+
+      const k = (targetOpen > jawOpenSmoothed) ? ATTACK : RELEASE;
+      jawOpenSmoothed += (targetOpen - jawOpenSmoothed) * k;
+
+      if (mouthTargetName) {
+        const { mesh, key } = mouthTargetName;
+        const idx = mesh.morphTargetDictionary[key];
+        mesh.morphTargetInfluences[idx] = jawOpenSmoothed;
+      } else if (jawBone && jawRestQuat) {
+        applyJawOpen(jawOpenSmoothed);
+      } else if (avatar) {
+        // fallback sutil
+        avatar.scale.y = 0.995 - jawOpenSmoothed * 0.03;
+        avatar.scale.x = avatar.scale.z = 1 + jawOpenSmoothed * 0.015;
+      }
+
+      renderer.render(scene, camera);
+    })();
+
+    // --- SDK ElevenLabs: volúmenes + callbacks ---
+    let conversation = null;
+    let volPoller = null;
+
+    async function startVolumePolling(){
+      if (!conversation) return;
+      const smooth = (p, n, a=0.5)=> p + (n - p) * a;
+      volPoller = setInterval(async () => {
+        try {
+          const [inVol, outVol] = await Promise.all([
+            conversation.getInputVolume?.(),
+            conversation.getOutputVolume?.()
+          ]);
+          if (typeof inVol  === 'number') levelIn  = smooth(levelIn,  inVol,  0.4);
+          if (typeof outVol === 'number') levelOut = smooth(levelOut, outVol, 0.6);
+          updateCurrentLevel();
+        } catch (e) { /* noop */ }
+      }, 50);
+    }
+    function stopVolumePolling(){
+      if (volPoller) { clearInterval(volPoller); volPoller = null; }
+      levelIn = levelOut = currentLevel = 0;
+    }
+
+    // --- Dispositivos de audio (mic) ---
+    async function listMics() {
+      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {}
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter(d => d.kind === 'audioinput');
+      fillSelect(micSelect, mics, d=>d.deviceId, d=>d.label || `Mic (${d.deviceId.slice(0,6)}…)`);
+      dbg('Mics:', mics.map(m=>m.label || m.deviceId));
+    }
+    listMics();
+    navigator.mediaDevices.addEventListener?.('devicechange', listMics);
+
+    // --- Token ---
+    async function getWebRTCToken(){
+      const r = await fetch(FETCH_WEBRTC_TOKEN_URL, { credentials: 'omit' });
+      if (!r.ok) {
+        const txt = await r.text();
+        console.error('Token non-200:', txt);
+        throw new Error('No se pudo obtener token WebRTC');
+      }
+      const { token } = await r.json();
+      return token;
+    }
+
+    // --- Sesión ---
+    btnConnect.onclick = async ()=>{
+      try{
+        statusEl.textContent = 'pidiendo micrófono...';
+        const inputDeviceId = micSelect.value || undefined;
+
+        await navigator.mediaDevices.getUserMedia({
+          audio: inputDeviceId ? { deviceId: { exact: inputDeviceId } } : true
+        });
+
+        const token = await getWebRTCToken();
+        statusEl.textContent = 'conectando...';
+
+        conversation = await Conversation.startSession({
+          agentId: AGENT_ID,
+          connectionType: 'webrtc',
+          inputDeviceId,
+          webrtc: { token },
+          onStatusChange: (s) => console.log('[status]', s),
+          onModeChange:   (m) => console.log('[mode]', m),
+          onMessage:      (msg) => console.log('[message]', msg),
+          onError:        (e) => console.error('[error]', e),
+          useWakeLock: false
+        });
+
+        try { await conversation.setMicMuted(false); } catch (e) { console.warn('setMicMuted:', e); }
+        await startVolumePolling();
+
+        statusEl.textContent = 'conectado (habla cuando quieras)';
+        dbg('Sesión conectada. Sondeando volúmenes…');
+      }catch(err){
+        console.error(err);
+        statusEl.textContent = 'error al conectar';
+        alert(err.message);
+      }
+    };
+
+    micSelect.addEventListener('change', async (e)=>{
+      const newId = e.target.value;
+      if (!conversation) return;
+      try {
+        await conversation.changeInputDevice?.({ inputDeviceId: newId, sampleRate: 16000, format: 'pcm' });
+        try { await conversation.setMicMuted(false); } catch {}
+        console.log('[mic] cambiado a', newId);
+      } catch(err){
+        console.error('No se pudo cambiar mic:', err);
+      }
+    });
+
+    btnDisconnect.onclick = async ()=>{
+      try{ if (conversation) await conversation.endSession(); }catch{}
+      conversation = null;
+      stopVolumePolling();
+      statusEl.textContent = 'desconectado';
+      dbg('Sesión terminada.');
+    };
+
+    // Panel de debug (5 Hz)
+    setInterval(()=>{
+      const info = [
+        `Agent in/out: ${levelIn.toFixed(2)} / ${levelOut.toFixed(2)}`,
+        `currentLevel: ${currentLevel.toFixed(2)}`,
+        `jawOpen: ${jawOpenSmoothed.toFixed(2)}  lastAngle: ${lastAppliedAngle.toFixed(3)} rad (${lastAxis})`,
+        `morph: ${mouthTargetName?.key || '—'}`,
+        `jawBone: ${jawBone?.name || '—'} | headBone: ${headBone?.name || '—'}`
+      ].join('\n');
+      setPanel(info);
+    }, 200);
+  </script>
+</body>
+</html>

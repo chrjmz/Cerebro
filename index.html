@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Avatar 3D + ElevenLabs (HTML+JS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { margin:0; height:100%; background:#0b0f1a; color:#eaeef5; font-family:system-ui, Segoe UI, Roboto, sans-serif; }
+    header { padding:12px 16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2840; flex-wrap:wrap; }
+    button { padding:10px 14px; border-radius:10px; border:0; background:#2a60ff; color:#fff; cursor:pointer; }
+    button.secondary { background:#27314e; }
+    #stage { width:100%; height:calc(100% - 120px); display:block; }
+    #status { margin-left:auto; opacity:.9; }
+    /* UI limpia: oculto debug */
+    #debugPanel { display:none !important; }
+    /* Loader */
+    #loader {
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background:radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11,15,26,0.9) 40%, #0b0f1a 70%);
+      z-index:10; flex-direction:column; gap:12px;
+    }
+    .spinner {
+      width:48px; height:48px; border-radius:50%;
+      border:4px solid #2a60ff30; border-top-color:#2a60ff; animation:spin 1s linear infinite;
+    }
+    @keyframes spin { to{ transform:rotate(360deg);} }
+    .loader-text { font-size:14px; color:#cfe0ff; opacity:.9 }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "livekit-client": "https://esm.sh/livekit-client@2",
+      "tslib": "https://esm.sh/tslib@2"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <button id="btnConnect">Connect mic</button>
+    <button id="btnDisconnect" class="secondary">Disconnect</button>
+
+    <span id="micWrap" style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; opacity:.9;">Mic:</span>
+      <select id="micSelect" title="Select microphone"></select>
+    </span>
+
+    <span id="status">disconnected</span>
+  </header>
+
+  <canvas id="stage"></canvas>
+
+  <!-- Loader overlay -->
+  <div id="loader" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="loader-text">Loading 3D avatar…</div>
+  </div>
+
+  <!-- Debug (oculto) -->
+  <div id="debugPanel" style="position:fixed; right:10px; bottom:10px; background:#0b1224d0; border:1px solid #243055; padding:8px 10px; border-radius:10px; font:12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#aecdff; pointer-events:none; max-width: 56ch; white-space: pre; user-select: text;"></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+    import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/client@0.6.2/dist/lib.module.js';
+
+    // --- CONFIG ---
+    const AGENT_ID = 'agent_0601k5bpbdwyfwmr4qhwgxvfcn9m';
+    const WP_BASE  = 'https://test-ai.garabatoweb.com';
+    const FBX_URL  = './P1_v02.fbx';
+    const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
+
+    const DEBUG = true;
+    function dbg(...a){ if (DEBUG) console.log('[DBG]', ...a); }
+
+    const dPanel = document.getElementById('debugPanel');
+    const statusEl = document.getElementById('status');
+    const loaderEl = document.getElementById('loader');
+
+    const btnConnect = document.getElementById('btnConnect');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const micSelect = document.getElementById('micSelect');
+
+    // Parámetros lipsync (sin sliders)
+    let GAIN = 2.6;
+    let MAX_ANGLE_DEG = 24;
+    let GATE = 0.03;
+    let ATTACK = 0.55;
+    let RELEASE = 0.25;
+    let GAMMA = 0.70;
+
+    // --- ESCENA 3D ---
+    const canvas = document.getElementById('stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 2, 0.1, 100);
+    camera.position.set(0,1.6,2.8);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(2,3,4); scene.add(key);
+
+    function onResize(){
+      const w = canvas.clientWidth || window.innerWidth;
+      const h = canvas.clientHeight || (window.innerHeight - 120);
+      renderer.setSize(w,h,false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    addEventListener('resize', onResize); onResize();
+
+    function disableFrustumCulling(root){
+      root.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    }
+
+    function fillSelect(sel, items, getVal = x=>x, getTxt = x=>x) {
+      sel.innerHTML = '';
+      for (const it of items) {
+        const opt = document.createElement('option');
+        opt.value = getVal(it);
+        opt.textContent = getTxt(it);
+        sel.appendChild(opt);
+      }
+    }
+    const caseIncludes = (str, needle)=> (str||'').toLowerCase().includes((needle||'').toLowerCase());
+
+    // --- AVATAR / HUESOS & MORPHS ---
+    let avatar;
+    let mouthTarget = null; // { mesh, key } si hay blendshape
+    let jawBone = null;
+    let headBone = null;
+    let jawRestQuat = null;
+    let headRestQuat = null;
+    let skeletonHelper = null;
+    let showHelper = false;
+
+    const MORPH_CANDIDATES = [
+      'MouthOpen','mouthopen','Mouth_Open','mouth_open','jawOpen','JAWOPEN',
+      'AA','A','Ah','ARKit.jawOpen','viseme_aa','viseme_ah','vrc.v_aa','vrc.v_oh',
+      'O','Oh','MouthO','Mouth_O','open','openMouth','jaw_open',
+      'lipsync_aa','Mouth_Aa','viseme.aa','jawopen','口開','あ'
+    ];
+    const JAW_BONES  = [
+      'CTRL_JAW','ROT_MOUTH','Jaw','lowerjaw','Mandible','Mouth','Chin',
+      'DEF-jaw','J_Jaw','jaw_def','jaw_01','jaw','jawBone','Bip01 Jaw','RIG-Jaw'
+    ];
+    const HEAD_BONES = ['CTRL_HEAD','Head','Neck','head_ctrl','Head_ctrl','Bip01 Head'];
+
+    // Auto-frame para que no salga gigante
+    function frameObjectToView(object, fitPadding = 1.25) {
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      controls.target.copy(center);
+
+      const maxSize = Math.max(size.x, size.y, size.z) * fitPadding;
+      const halfFovY = THREE.MathUtils.degToRad(camera.fov * 0.5);
+      const distance = (maxSize/2) / Math.tan(halfFovY);
+
+      const dir = new THREE.Vector3()
+        .subVectors(camera.position, center)
+        .normalize()
+        .multiplyScalar(distance);
+
+      camera.position.copy(center).add(dir);
+      camera.near = Math.max(0.01, maxSize / 100);
+      camera.far  = Math.max(100,  maxSize * 10);
+      camera.updateProjectionMatrix();
+      controls.update();
+    }
+
+    const loader = new FBXLoader();
+    loader.load(
+      FBX_URL,
+      (fbx)=>{
+        avatar = fbx;
+        avatar.scale.setScalar(0.01); // escala base
+        disableFrustumCulling(avatar);
+        scene.add(avatar);
+
+        // MORPHS
+        const morphEntries = [];
+        avatar.traverse(obj=>{
+          if (obj.isMesh && obj.morphTargetDictionary) {
+            for (const key of Object.keys(obj.morphTargetDictionary)) {
+              morphEntries.push({ mesh: obj, key });
+            }
+          }
+        });
+        mouthTarget = null;
+        for (const cand of MORPH_CANDIDATES) {
+          const found = morphEntries.find(e => caseIncludes(e.key, cand));
+          if (found) { mouthTarget = found; break; }
+        }
+
+        // HUESOS
+        const boneEntries = [];
+        avatar.traverse(obj=>{ if (obj.isBone) boneEntries.push(obj); });
+
+        jawBone = null;
+        for (const cand of JAW_BONES) {
+          const b = boneEntries.find(bn => caseIncludes(bn.name, cand));
+          if (b) { jawBone = b; break; }
+        }
+        headBone = boneEntries.find(bn => HEAD_BONES.some(c => caseIncludes(bn.name, c))) || null;
+
+        if (jawBone)  jawRestQuat  = jawBone.quaternion.clone();
+        if (headBone) headRestQuat = headBone.quaternion.clone();
+
+        // helper (oculto)
+        skeletonHelper = new THREE.SkeletonHelper(avatar);
+        skeletonHelper.visible = false;
+        scene.add(skeletonHelper);
+
+        // Encadra el modelo
+        frameObjectToView(avatar, 1.25);
+
+        // Oculta loader
+        loaderEl.style.display = 'none';
+
+        dbg('[Avatar] ready:', {
+          mouthTarget: mouthTarget?.key || '—',
+          jawBone: jawBone?.name || '—',
+          headBone: headBone?.name || '—'
+        });
+      },
+      undefined,
+      (err)=> {
+        console.error('FBX load error:', err);
+        loaderEl.querySelector('.loader-text').textContent = 'Error loading 3D avatar';
+      }
+    );
+
+    window.addEventListener('keydown', (e)=>{
+      if (e.key.toLowerCase() === 'd' && skeletonHelper) {
+        showHelper = !showHelper;
+        skeletonHelper.visible = showHelper;
+        dbg('SkeletonHelper:', showHelper ? 'ON' : 'OFF');
+      }
+    });
+
+    // --- AUDIO / VOLÚMENES ---
+    let conversation = null;
+    let volPoller = null;
+    let hasSDKVolume = false;
+
+    let levelOut = 0, levelIn = 0, currentLevel = 0; // 0..1
+    let micAudioCtx = null, micAnalyser = null, micData = null, micLevel = 0, micStream = null;
+
+    // Half-duplex: si el agente habla, mic mute; cuando hay silencio, unmute
+    let isAgentSpeaking = false;
+    let lastOutAboveTs = 0;
+    const SPEECH_SILENCE_MS = 700;
+    const OUT_THRESH = 0.03;
+
+    async function ensureMicMuted(muted){
+      if (!conversation) return;
+      try { await conversation.setMicMuted(!!muted); } catch(e){ /* noop */ }
+    }
+
+    function updateSpeakingState(){
+      const now = performance.now();
+      if (levelOut > OUT_THRESH) {
+        isAgentSpeaking = true;
+        lastOutAboveTs = now;
+      } else if (isAgentSpeaking && (now - lastOutAboveTs) > SPEECH_SILENCE_MS) {
+        isAgentSpeaking = false;
+      }
+    }
+
+    // RMS local (para medir entrada si se necesitara; aquí NO lo usamos para animar nada)
+    async function startMicRMS(stream){
+      if (micAudioCtx) return;
+      micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        const src = micAudioCtx.createMediaStreamSource(stream);
+        micAnalyser = micAudioCtx.createAnalyser();
+        micAnalyser.fftSize = 1024;
+        micData = new Float32Array(micAnalyser.fftSize);
+        const gain = micAudioCtx.createGain();
+        gain.gain.value = 1.0;
+        src.connect(gain).connect(micAnalyser);
+        const tick = ()=> {
+          if (!micAnalyser) return;
+          micAnalyser.getFloatTimeDomainData(micData);
+          let sum=0;
+          for (let i=0;i<micData.length;i++){ const v=micData[i]; sum += v*v; }
+          const rms = Math.sqrt(sum / micData.length);
+          const aUp=0.4, aDown=0.15;
+          micLevel += (rms - micLevel) * (rms > micLevel ? aUp : aDown);
+          const norm = Math.min(1, micLevel * 3.5);
+          levelIn = norm; // solo informativo
+          // OJO: NO usamos levelIn para animar nada
+          requestAnimationFrame(tick);
+        };
+        tick();
+        dbg('Mic RMS fallback started');
+      } catch(e) {
+        console.warn('Mic RMS fallback failed:', e);
+      }
+    }
+
+    async function startVolumePolling(){
+      if (!conversation) return;
+      const smooth = (p, n, a=0.5)=> p + (n - p) * a;
+      volPoller = setInterval(async () => {
+        try {
+          // Volúmenes del SDK
+          const inVol = await conversation.getInputVolume?.();
+          const outVol = await conversation.getOutputVolume?.();
+
+          if (typeof inVol  === 'number') { levelIn  = smooth(levelIn,  inVol,  0.4); hasSDKVolume = hasSDKVolume || inVol  > 0; }
+          if (typeof outVol === 'number') { levelOut = smooth(levelOut, outVol, 0.6); hasSDKVolume = hasSDKVolume || outVol > 0; }
+
+          // Actualiza estado de “agente hablando”
+          const prevSpeaking = isAgentSpeaking;
+          updateSpeakingState();
+
+          // Half-duplex
+          if (isAgentSpeaking && !prevSpeaking) {
+            await ensureMicMuted(true);
+            dbg('Half-duplex: agent speaking → mic muted');
+          } else if (!isAgentSpeaking && prevSpeaking) {
+            await ensureMicMuted(false);
+            dbg('Half-duplex: agent silent → mic unmuted');
+          }
+        } catch (e) { /* noop */ }
+      }, 60);
+    }
+    function stopVolumePolling(){
+      if (volPoller) { clearInterval(volPoller); volPoller = null; }
+      levelIn = levelOut = currentLevel = 0;
+      hasSDKVolume = false;
+      isAgentSpeaking = false;
+    }
+
+    // --- RENDER & ANIMS ---
+    const clock = new THREE.Clock();
+    let jawOpenSmoothed = 0;
+    let lastAppliedAngle = 0, lastAxis = '-';
+
+    function inferJawAxisAndSign(name){
+      const n = (name||'').toLowerCase();
+      if (n.includes('rot_mouth')) return { axis:'z', sign:-1 };
+      return { axis:'x', sign:-1 };
+    }
+    function applyJawOpen(open01){
+      if (!jawBone || !jawRestQuat) return;
+      const clamped = Math.min(Math.max(open01, 0), 1);
+      const eased = Math.pow(clamped, 0.9);
+      const angle = eased * THREE.MathUtils.degToRad(MAX_ANGLE_DEG);
+
+      jawBone.quaternion.copy(jawRestQuat);
+
+      let { axis, sign } = inferJawAxisAndSign(jawBone.name);
+      const q = new THREE.Quaternion();
+      if (axis === 'x') q.setFromAxisAngle(new THREE.Vector3(1,0,0), sign * angle);
+      else if (axis === 'y') q.setFromAxisAngle(new THREE.Vector3(0,1,0), sign * angle);
+      else q.setFromAxisAngle(new THREE.Vector3(0,0,1), sign * angle);
+
+      jawBone.quaternion.multiply(q);
+      jawBone.updateMatrixWorld(true);
+
+      lastAppliedAngle = angle * (sign || 1);
+      lastAxis = axis;
+    }
+
+    (function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+
+      const t = clock.getElapsedTime();
+
+      // *** SOLO salida del agente controla todo ***
+      const levelForAgent = isAgentSpeaking ? levelOut : 0;
+
+      // Idle cabeza + micro-nodding — solo con voz del agente
+      if (headBone && headRestQuat) {
+        headBone.quaternion.copy(headRestQuat);
+        const swayZ = Math.sin(t * 0.6) * 0.03;
+        const swayY = Math.sin(t * 0.4) * 0.02;
+        const nod   = (levelForAgent || 0) * 0.12;
+        const qIdleZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),  swayZ);
+        const qIdleY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),  swayY);
+        const qNodX  = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),  nod);
+        headBone.quaternion.multiply(qIdleZ).multiply(qIdleY).multiply(qNodX);
+        headBone.updateMatrixWorld(true);
+      }
+
+      // LIPSYNC — solo con voz del agente
+      const level = Math.max(0, levelForAgent - GATE);
+      let boosted = Math.pow(level * GAIN, GAMMA);
+      const targetOpen = Math.min(boosted, mouthTarget ? 1.25 : 1.0);
+
+      const k = (targetOpen > jawOpenSmoothed) ? ATTACK : RELEASE;
+      jawOpenSmoothed += (targetOpen - jawOpenSmoothed) * k;
+
+      if (mouthTarget) {
+        const { mesh, key } = mouthTarget;
+        const idx = mesh.morphTargetDictionary[key];
+        mesh.morphTargetInfluences[idx] = jawOpenSmoothed;
+      } else if (jawBone && jawRestQuat) {
+        applyJawOpen(jawOpenSmoothed);
+      } else if (avatar) {
+        avatar.scale.y = 0.995 - jawOpenSmoothed * 0.03;
+        avatar.scale.x = avatar.scale.z = 1 + jawOpenSmoothed * 0.015;
+      }
+
+      renderer.render(scene, camera);
+    })();
+
+    // --- Dispositivos de audio (mic) ---
+    async function listMics() {
+      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {}
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter(d => d.kind === 'audioinput');
+      fillSelect(micSelect, mics, d=>d.deviceId, d=>d.label || `Mic (${d.deviceId.slice(0,6)}…)`);
+      dbg('Mics:', mics.map(m=>m.label || m.deviceId));
+    }
+    listMics();
+    navigator.mediaDevices.addEventListener?.('devicechange', listMics);
+
+    // --- Token ---
+    async function getWebRTCToken(){
+      const r = await fetch(FETCH_WEBRTC_TOKEN_URL, { credentials: 'omit' });
+      if (!r.ok) {
+        const txt = await r.text();
+        console.error('Token non-200:', txt);
+        throw new Error('Could not obtain WebRTC token');
+      }
+      const { token } = await r.json();
+      return token;
+    }
+
+    // --- Sesión ---
+    let lastPermissionStream = null;
+
+    btnConnect.onclick = async ()=>{
+      try{
+        statusEl.textContent = 'requesting microphone…';
+        const inputDeviceId = micSelect.value || undefined;
+
+        // Permiso + RMS local (informativo)
+        lastPermissionStream = await navigator.mediaDevices.getUserMedia({
+          audio: inputDeviceId ? { deviceId: { exact: inputDeviceId } } : true
+        });
+        startMicRMS(lastPermissionStream).catch(()=>{});
+
+        const token = await getWebRTCToken();
+        statusEl.textContent = 'connecting…';
+
+        conversation = await Conversation.startSession({
+          agentId: AGENT_ID,
+          connectionType: 'webrtc',
+          inputDeviceId,
+          webrtc: { token },
+          onStatusChange: (s) => console.log('[status]', s),
+          onModeChange:   (m) => console.log('[mode]', m),
+          onMessage:      (msg) => {
+            // Intenta evitar solapes si el SDK lo soporta
+            try { conversation.setPlaybackBehavior?.({ interrupt: true }); } catch {}
+            console.log('[message]', msg);
+          },
+          onError:        (e) => console.error('[error]', e),
+          useWakeLock: false
+        });
+
+        try { await conversation.setMicMuted(false); } catch (e) { console.warn('setMicMuted:', e); }
+        await startVolumePolling();
+
+        statusEl.textContent = 'connected — you can speak now';
+        dbg('Session connected. Volumes ready.');
+      }catch(err){
+        console.error(err);
+        statusEl.textContent = 'failed to connect';
+        alert(err.message);
+      }
+    };
+
+    micSelect.addEventListener('change', async (e)=>{
+      const newId = e.target.value;
+      if (!conversation) return;
+      try {
+        await conversation.changeInputDevice?.({ inputDeviceId: newId, sampleRate: 16000, format: 'pcm' });
+        try { await conversation.setMicMuted(false); } catch {}
+        console.log('[mic] switched to', newId);
+
+        // Reinicia RMS con nuevo dispositivo (solo informativo)
+        if (lastPermissionStream) { lastPermissionStream.getAudioTracks().forEach(t=>t.stop()); lastPermissionStream=null; }
+        lastPermissionStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: newId } } });
+        if (micAudioCtx) { try { micAudioCtx.close(); } catch{} }
+        micAudioCtx = null; micAnalyser = null; micData = null; micLevel = 0;
+        startMicRMS(lastPermissionStream).catch(()=>{});
+      } catch(err){
+        console.error('Could not change mic:', err);
+      }
+    });
+
+    btnDisconnect.onclick = async ()=>{
+      try{ if (conversation) await conversation.endSession(); }catch{}
+      conversation = null;
+      stopVolumePolling();
+      if (micAudioCtx) { try { micAudioCtx.close(); } catch{} }
+      micAudioCtx = null; micAnalyser = null; micData = null; micLevel = 0;
+      if (lastPermissionStream) { lastPermissionStream.getAudioTracks().forEach(t=>t.stop()); lastPermissionStream=null; }
+      statusEl.textContent = 'disconnected';
+      dbg('Session ended.');
+    };
+
+    // Debug oculto (5 Hz)
+    setInterval(()=>{
+      const info = [
+        `SDK in/out: ${levelIn.toFixed(2)} / ${levelOut.toFixed(2)}  (sdk=${hasSDKVolume?'yes':'no'}; rms=${(micLevel||0).toFixed(2)})`,
+        `isAgentSpeaking: ${isAgentSpeaking}`,
+        `jawOpen: ${jawOpenSmoothed.toFixed(2)}  lastAngle: ${lastAppliedAngle.toFixed(3)} rad (${lastAxis})`,
+        `morph: ${mouthTarget?.key || '—'}`,
+        `jawBone: ${jawBone?.name || '—'} | headBone: ${headBone?.name || '—'}`
+      ].join('\n');
+      dPanel.textContent = info;
+    }, 200);
+  </script>
+</body>
+</html>
