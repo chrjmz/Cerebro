@@ -2,13 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>KRANG — Lipsync + dientes + lengua (full window)</title>
+  <title>KRANG — Lipsync + dientes + lengua (full window + sombras realistas)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
     :root { color-scheme: dark; }
     html, body {
-      margin:0; height:100%;
-      background:#000; /* letterbox */
+      margin:0;
+      height:100dvh;
+      background:#000;
       color:#eaeef5; font-family:system-ui, Segoe UI, Roboto, sans-serif;
       overflow:hidden;
     }
@@ -24,9 +25,9 @@
     button[disabled] { opacity:.5; cursor:not-allowed; }
     #status { margin-left:auto; opacity:.9; font-size:12px; }
 
-    /* Canvas A PANTALLA COMPLETA (sin contención cuadrada, sin borde/sombra) */
     #stage {
       position: fixed; inset:0; display:block; touch-action:none; background:transparent;
+      width:100vw; height:100dvh;
     }
 
     #loader { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
@@ -47,7 +48,11 @@
 
     body{
       background-image: url("./img/fondo.png");
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
     }
+    canvas { pointer-events: none; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
@@ -82,7 +87,7 @@
     <div class="loader-text">Loading 3D avatar…</div>
   </div>
 
-  <div class="hud" id="hud" aria-hidden="true">
+  <div class="hud" id="hud" aria-hidden="true" style="display: none !important;">
     <div>levelOut: <span id="lvlTxt">0.00</span></div>
     <div class="bar"><div id="lvlBar" class="fill"></div></div>
     <div class="row">
@@ -108,36 +113,45 @@
 
     const USE_MIXER_MOUTH = true;
 
-    const MOUTH_MIXER_WHEN_TALK   = 1.0;
+    const MOUTH_MIXER_WHEN_TALK   = 0.55;
     const MOUTH_MIXER_WHEN_SILENT = 0.0;
     const MOUTH_MANUAL_WHEN_TALK   = 0.55;
     const MOUTH_MANUAL_WHEN_SILENT = 0.0;
 
+    const ALWAYS_CENTER_INIT = true;
 
-    const VIEW = { faceFront:true, targetYOffsetRatio:0.66, fitPadding:0.70, extraBack:0.60 };
+    const VIEW = {
+      faceFront:true,
+      targetYOffsetRatio:0.65,
+      fitPadding:0.75,
+      extraBack:0.41,
+      targetXOffsetRatio: 0.00
+    };
+
     const FOV = 40;
-
-    // Ajuste global
-    const FIGURE_TILT_DEG = { x: 0, y: 0, z: 0 };
+    const FIGURE_TILT_DEG = { x: -20, y: 0, z: 0 };
 
     // ---------- ESCENA ----------
     const canvas   = document.getElementById('stage');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+
     renderer.setPixelRatio(Math.min(devicePixelRatio, /Mobi|Android/i.test(navigator.userAgent) ? 1.5 : 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 2.85;
 
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(/Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV, window.innerWidth / window.innerHeight, 0.01, 100);
-    camera.position.set(0,1.6,4);
+    const camera = new THREE.PerspectiveCamera(/Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV, 1, 0.01, 100);
+    camera.position.set(3,1.6,4);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.enablePan = false;
     controls.enableZoom = false;
 
-    // Pivot para inclinar todo el avatar
     const pivot = new THREE.Group();
     scene.add(pivot);
 
@@ -148,9 +162,15 @@
 
     let avatar = null;
 
-    // --- RESIZE: PANTALLA COMPLETA ---
+    // === viewport seguro ===
+    function getViewportSize(){
+      const vv = window.visualViewport;
+      if (vv) return { w: Math.round(vv.width), h: Math.round(vv.height) };
+      return { w: window.innerWidth, h: window.innerHeight };
+    }
+
     function onResize(){
-      const w = window.innerWidth, h = window.innerHeight;
+      const { w, h } = getViewportSize();
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.fov = /Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV;
@@ -158,7 +178,7 @@
       if (avatar) frameToView(avatar, VIEW);
     }
     addEventListener('resize', onResize, { passive:true });
-    onResize();
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize, { passive:true });
 
     // ---------- HELPERS ----------
     const clamp01 = (x)=> Math.min(1, Math.max(0, x));
@@ -181,6 +201,7 @@
       if(CTRL_JAW)   restore(CTRL_JAW);
       if(DEF_JAW)    restore(DEF_JAW);
       if(TEETH_LOWER) restore(TEETH_LOWER);
+      if(TEETH_UPPER) restore(TEETH_UPPER);
       (LIP_UP||[]).forEach(n => restore(n));
       (LIP_DOWN||[]).forEach(n => restore(n));
       (TONGUE||[]).forEach(n => restore(n));
@@ -193,10 +214,12 @@
     let CTRL_MOUTH=null, CTRL_JAW=null, DEF_JAW=null;
     let TEETH_LOWER=null, TEETH_UPPER=null;
     let LIP_UP=[], LIP_DOWN=[];
+    let LIP_UP_CORNERS=[], LIP_UP_CENTER=[];
+    let LIP_DOWN_CORNERS=[], LIP_DOWN_CENTER=[];
     let OJO_L=null, OJO_R=null;
     let FK_LEFT=[], FK_RIGHT=[];
     let ARM_L=[], ARM_R=[];
-    let TONGUE=[]; // CTRL_TONGUE_* o DEF_TONGUE_*
+    let TONGUE=[];
 
     // ---------- UI ----------
     const statusEl=document.getElementById('status');
@@ -218,43 +241,80 @@
     loader.setMeshoptDecoder(MeshoptDecoder);
 
     let mixer=null, clock=null, actionBody=null, actionMouth=null;
-    let HAS_TEETH_TRACKS = false;
+
+    function computeBaseSphere(object){
+      const box = new THREE.Box3().setFromObject(object);
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      return sphere;
+    }
 
     function normalizeAndCenter(object){
       const box = new THREE.Box3().setFromObject(object);
       const size=box.getSize(new THREE.Vector3());
       const center=box.getCenter(new THREE.Vector3());
       const maxSide = Math.max(size.x, size.y, size.z);
-      if (!isFinite(maxSide) || maxSide===0) {
-        console.warn('[GLB] Bounding inválido, saltando normalización.');
-        return;
-      }
+      if (!isFinite(maxSide) || maxSide===0) return;
       object.position.x -= center.x;
       object.position.z -= center.z;
       const target = 2.5;
       if (maxSide < 0.05 || maxSide > 50) {
         const s = target / maxSide;
         object.scale.multiplyScalar(s);
-        console.log(`[GLB] Normalizado por escala. maxSide=${maxSide.toFixed(3)} → scale*= ${s.toFixed(3)}`);
       }
     }
 
-    // Luces sencillas (sin “cuarto” ni paredes)
-    function addSimpleStudio(){
-      const amb = new THREE.AmbientLight(0xffffff, 0.12);
-      scene.add(amb);
-      const key = new THREE.DirectionalLight(0xffffff, 1.3);
-      key.position.set(1.2, 1.8, 1.0);
+    function addCinematicLights(target) {
+      const amb = new THREE.AmbientLight(0xffffff, 0.30); scene.add(amb);
+
+      const key = new THREE.DirectionalLight(0xfff2e0, 1.45);
+      key.position.set(-0.0, 0.8, 1);
       key.castShadow = true;
-      key.shadow.mapSize.set(2048,2048);
-      key.shadow.bias = -0.0002;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.radius = 4;
+      key.shadow.bias = -0.00018;
+
+      const box = new THREE.Box3().setFromObject(target || pivot);
+      const s = box.getSize(new THREE.Vector3()).length() * 0.6 || 3;
+      key.shadow.camera.near = 0;
+      key.shadow.camera.far  = 10;
+      key.shadow.camera.left = -s; key.shadow.camera.right = s;
+      key.shadow.camera.top  =  s; key.shadow.camera.bottom = -s;
       scene.add(key);
-      const fill = new THREE.DirectionalLight(0xaad0ff, 0.6);
-      fill.position.set(-1.2, 1.0, 0.8);
+
+      const fill = new THREE.DirectionalLight(0xaec8ff, 0.55);
+      fill.position.set(-1.1, 1.2, 0.8);
       scene.add(fill);
-      const rim = new THREE.DirectionalLight(0xffffff, 0.35);
-      rim.position.set(0.8, 0.6, -1.0);
+
+      const rim = new THREE.DirectionalLight(0xfff2d0, 0.50);
+      rim.position.set(0.5, 0.9, -1.2);
       scene.add(rim);
+    }
+
+    function buildShadowReceiversAround(object) {
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const shadowMatFloor = new THREE.ShadowMaterial({ opacity: 0.35 }); shadowMatFloor.depthWrite = false;
+      const shadowMatWall  = new THREE.ShadowMaterial({ opacity: 0.18 }); shadowMatWall.depthWrite = false;
+
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(size.x * 2.2, size.z * 2.2), shadowMatFloor);
+      floor.rotation.x = -Math.PI * 0.5;
+      floor.position.set(center.x, box.min.y + 0.02, center.z + size.z*0.15);
+      floor.receiveShadow = true; floor.renderOrder = -1; scene.add(floor);
+
+      const backWall = new THREE.Mesh(new THREE.PlaneGeometry(size.x * 2.0, size.y * 2.0), shadowMatWall);
+      backWall.position.set(center.x, center.y, box.max.z + size.z*0.25);
+      backWall.receiveShadow = true; scene.add(backWall);
+
+      const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(size.z * 2.0, size.y * 2.0), shadowMatWall);
+      leftWall.rotation.y = Math.PI * 0.5;
+      leftWall.position.set(box.min.x - size.x*0.35, center.y, center.z + size.z*0.05);
+      leftWall.receiveShadow = true; scene.add(leftWall);
+
+      const rightWall = leftWall.clone();
+      rightWall.position.x = box.max.x + size.x*0.35;
+      scene.add(rightWall);
     }
 
     console.log('[GLB] Cargando:', GLB_URL);
@@ -264,11 +324,16 @@
 
       normalizeAndCenter(avatar);
       disableFrustumCulling(avatar);
-
-      // Añadir al pivot
       pivot.add(avatar);
 
       avatar.traverse(o=>{ if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      avatar.traverse(o=>{
+        if (o.isMesh && o.material && 'roughness' in o.material) {
+          o.material.roughness = Math.min(0.55, o.material.roughness ?? 0.6);
+          o.material.metalness = Math.max(0.05, o.material.metalness ?? 0.0);
+          o.material.needsUpdate = true;
+        }
+      });
 
       // === NODOS ===
       ROOT         = findFirst(avatar, ['ROOT']) || findRegex(avatar, /ROOT|Armature|Hip/i)[0];
@@ -289,6 +354,13 @@
       LIP_UP   = preferDEF([...lipsUp, ...lipCorners].filter(Boolean));
       LIP_DOWN = preferDEF([...lipsDn, ...lipCorners].filter(Boolean));
 
+      // separar centro vs comisuras
+      const isCorner = (n)=> /CORNER/i.test(n.name);
+      LIP_DOWN_CORNERS = LIP_DOWN.filter(isCorner);
+      LIP_DOWN_CENTER  = LIP_DOWN.filter(n => !isCorner(n));
+      LIP_UP_CORNERS   = LIP_UP.filter(isCorner);
+      LIP_UP_CENTER    = LIP_UP.filter(n => !isCorner(n));
+
       OJO_L = findFirst(avatar, ['CTRL_EYE.L','Ojo_Izquierdo']) || findRegex(avatar, /(EYE|Ojo).*L/i)[0];
       OJO_R = findFirst(avatar, ['CTRL_EYE.R','Ojo_derecho'])  || findRegex(avatar, /(EYE|Ojo).*R/i)[0];
 
@@ -306,37 +378,28 @@
       if (ARM_L.length === 0) ARM_L = findRegex(avatar, /(ARM|Hombro|Brazo).*L/i);
       if (ARM_R.length === 0) ARM_R = findRegex(avatar, /(ARM|Hombro|Brazo).*R/i);
 
-      // Lengua: preferir controles, si no, DEF_*
       const tongueCtrls = ['CTRL_TONGUE_01','CTRL_TONGUE_02','CTRL_TONGUE_03','CTRL_TONGUE_04','CTRL_MASTER_TONGUE'];
       TONGUE = tongueCtrls.map(n=>findExact(avatar,n)).filter(Boolean);
-      if (TONGUE.length===0) {
-        TONGUE = findRegex(avatar, /(CTRL|DEF)[_\-]?TONGUE(_\d+)?|Lengua|Tongue/i);
-      }
+      if (TONGUE.length===0) TONGUE = findRegex(avatar, /(CTRL|DEF)[_\-]?TONGUE(_\d+)?|Lengua|Tongue/i);
 
       ;[ROOT,DEF_HEAD,CTRL_HEAD_UP,CTRL_MOUTH,CTRL_JAW,DEF_JAW,TEETH_LOWER,TEETH_UPPER,OJO_L,OJO_R,
         ...LIP_UP,...LIP_DOWN,...FK_LEFT,...FK_RIGHT, ...ARM_L, ...ARM_R, ...TONGUE].forEach(saveRest);
 
-      // Logs
-      console.table({
-        ROOT: !!ROOT, DEF_HEAD: !!DEF_HEAD, CTRL_HEAD_UP: !!CTRL_HEAD_UP,
-        CTRL_MOUTH: !!CTRL_MOUTH, CTRL_JAW: !!CTRL_JAW, DEF_JAW: !!DEF_JAW,
-        TEETH_LOWER: !!TEETH_LOWER, TEETH_UPPER: !!TEETH_UPPER,
-        OJO_L: !!OJO_L, OJO_R: !!OJO_R,
-        LIP_UP: (LIP_UP||[]).length, LIP_DOWN: (LIP_DOWN||[]).length,
-        FK_LEFT: (FK_LEFT||[]).length, FK_RIGHT: (FK_RIGHT||[]).length,
-        ARM_L: (ARM_L||[]).length, ARM_R: (ARM_R||[]).length,
-        TONGUE: (TONGUE||[]).length
-      });
+      avatar.userData.baseSphere = computeBaseSphere(avatar);
 
-      // Encuadre inicial
+      onResize();
       frameToView(avatar, VIEW);
+      addCinematicLights(avatar);
+      buildShadowReceiversAround(avatar);
+
+      const tmpBox = new THREE.Box3().setFromObject(avatar);
+      controls.target.y -= 0.08 * tmpBox.getSize(new THREE.Vector3()).y;
+      camera.position.y -= 0.05;
+      controls.update();
+
       document.getElementById('loader').style.display='none';
-      document.getElementById('hud').style.display='block';
+      document.getElementById('hud').style.display='none';
 
-      // Luces sencillas (sin “room”)
-      addSimpleStudio();
-
-      // Mixer Body/Mouth con filtro de pistas de dientes (para no pelear con el manual)
       if (gltf.animations && gltf.animations.length) {
         mixer = new THREE.AnimationMixer(avatar);
         clock = new THREE.Clock();
@@ -350,9 +413,8 @@
           for (const tr of clip.tracks) {
             const isMouth = rxMouthish.test(tr.name);
             const isTeeth = rxTeethAny.test(tr.name);
-            if (isTeeth) { HAS_TEETH_TRACKS = true; }
             if (isMouth) {
-              // Excluir dientes del mixer para que el manual mande
+              // Nota: dejamos dientes FUERA del mixer de boca; los driveremos manualmente con la mandíbula
               if (!isTeeth) mouthTracks.push(tr);
             } else {
               bodyTracks.push(tr);
@@ -368,15 +430,12 @@
         actionMouth.setEffectiveWeight(0.0);
       }
 
-      // Inclinación global
       pivot.rotation.set(
         THREE.MathUtils.degToRad(FIGURE_TILT_DEG.x),
         THREE.MathUtils.degToRad(FIGURE_TILT_DEG.y),
         THREE.MathUtils.degToRad(FIGURE_TILT_DEG.z)
       );
 
-      onResize();
-      frameToView(avatar, VIEW);
     }, (ev)=>{}, (err)=>{
       console.error('GLB load error:', err);
       document.getElementById('loader').querySelector('.loader-text').textContent = 'Error loading 3D avatar';
@@ -384,24 +443,60 @@
     });
 
     // ---------- ENCUADRE ----------
-    function frameToView(object,{fitPadding=(/Mobi|Android/i.test(navigator.userAgent)?1.24:1.30),extraBack=1.45,targetYOffsetRatio=0.18,faceFront=true}={}){
-      const box=new THREE.Box3().setFromObject(object);
-      const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
-      if (!isFinite(size.x+size.y+size.z)) return;
+    function frameToView(object, {
+      fitPadding=(/Mobi|Android/i.test(navigator.userAgent)?1.24:1.30),
+      extraBack=1.45,
+      targetYOffsetRatio=0.18,
+      faceFront=true,
+      targetXOffsetRatio=0.00
+    } = {}){
+      const sphere = object.userData.baseSphere || new THREE.Box3().setFromObject(object).getBoundingSphere(new THREE.Sphere());
+      if (!sphere || !isFinite(sphere.radius)) return;
 
-      const maxSize=Math.max(size.x,size.y,size.z)*fitPadding;
-      const dist=((maxSize/2)/Math.tan(THREE.MathUtils.degToRad(camera.fov*0.5)))*extraBack;
-      const target=center.clone(); target.y += size.y*targetYOffsetRatio;
-      const dir = faceFront? new THREE.Vector3(0,0,1) : new THREE.Vector3().subVectors(camera.position,target).normalize();
-      dir.multiplyScalar(dist); camera.position.copy(target).add(dir);
-      camera.near=Math.max(0.01,maxSize/400); camera.far=Math.max(100,maxSize*20); camera.updateProjectionMatrix();
-      controls.target.copy(target); controls.update();
-      controls.minDistance=dist*0.75; controls.maxDistance=dist*2.2;
+      const center = sphere.center.clone();
+      const sizeY  = sphere.radius * 2;
+      const fovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
+      const dist   = ((sphere.radius * fitPadding) / Math.sin(fovRad)) * extraBack;
+
+      const target = center.clone();
+      target.y += sizeY * targetYOffsetRatio;
+
+      const xOff = ALWAYS_CENTER_INIT ? 0.00 : targetXOffsetRatio;
+      target.x += (sphere.radius * 2) * xOff;
+
+      const dir = faceFront ? new THREE.Vector3(0,0,1) : new THREE.Vector3().subVectors(camera.position, target).normalize();
+      dir.multiplyScalar(dist);
+      camera.position.copy(target).add(dir);
+
+      camera.near = Math.max(0.01, (sphere.radius) / 200);
+      camera.far  = Math.max(100, sphere.radius * 40);
+      camera.updateProjectionMatrix();
+
+      controls.target.copy(target);
+      controls.update();
+      controls.minDistance = dist*0.75;
+      controls.maxDistance = dist*2.2;
     }
 
     // ---------- AUDIO / SESIÓN ----------
     let conversation=null, volPoller=null, levelOut=0;
     let isConnecting = false;
+
+    // normalización de mic
+    let micGain = 1;
+    let micCalibrated = false;
+    async function calibrateMicGain(ms = 700) {
+      const t0 = performance.now();
+      let sum = 0, n = 0;
+      while (performance.now() - t0 < ms) {
+        sum += levelOut; n++;
+        await new Promise(r => setTimeout(r, 16));
+      }
+      const avg = (n ? sum/n : 0.05);
+      const target = 0.12;
+      micGain = (avg > 1e-3) ? (target / avg) : 1;
+      micCalibrated = true;
+    }
 
     async function listMics(){
       try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch{}
@@ -420,7 +515,6 @@
       const {token}=await r.json(); return token;
     }
 
-    // Sensibilidad mejorada
     const OUT_GATE = 0.02;
     const OUT_GAIN = 4.2;
     const OUT_GAMMA = 0.75;
@@ -452,7 +546,6 @@
       }
     }
 
-    // Botón para forzar lipsync
     let forceTalking = false;
     btnTestTalk.onclick = () => {
       forceTalking = !forceTalking;
@@ -497,6 +590,7 @@
         },60);
 
         setUIConnected(true);
+        calibrateMicGain(); // normalización mic
       }catch(e){
         console.error(e);
         statusElSet('failed');
@@ -519,7 +613,6 @@
     // ---------- ANIMACIÓN / CARA ----------
     function applyMixerAdditives(open){
       if (!open) return;
-      // labio superior leve lift para abrir más la cavidad
       const upDy = +0.08 * open;
       const upRx = THREE.MathUtils.degToRad(6) * open;
       (LIP_UP||[]).forEach(n=>{ addMov(n, 0, upDy, 0); addRot(n, new THREE.Vector3(1,0,0), upRx); });
@@ -528,6 +621,25 @@
     let eyesCur=new THREE.Vector2(0,0), eyesTarget=new THREE.Vector2(0,0), nextSaccadeAt=0;
     let jawOpen=0;
 
+    // --- LIP SEAL (sello de labios con pinch) ---
+    const SEAL = {
+      enabled: true,
+
+      // Labio inferior
+      lowerUpMid:  -2.8,          // centro sube más
+      lowerUpCornerScale: 2.45,  // comisuras suben menos (evita ensanche)
+      lowerRxDeg:  -25,           // rotación X hacia dentro
+      cornerPinchX: -10,        // comisuras hacia dentro (X)
+      cornerRotZDeg: -1,          // rotación Z en comisuras para plegar
+
+      // Labio superior (suave)
+      upperDown:  -1,
+      upperRxDeg: -8,
+
+      // Mandíbula
+      jawRxDeg:   18
+    };
+
     function applyMouth(open){
       const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
 
@@ -535,39 +647,77 @@
       if(CTRL_JAW)   rot(CTRL_JAW,   new THREE.Vector3(1,0,0), -ang*0.85);
       if(DEF_JAW)    rot(DEF_JAW,    new THREE.Vector3(1,0,0), -ang*0.65);
 
-      // Dientes inferiores: siguen la mandíbula + pequeño offset
+      // DIENTES: seguir a la mandíbula (sin “congelar”)
       if(TEETH_LOWER){
         copyPose(DEF_JAW || CTRL_JAW || CTRL_MOUTH, TEETH_LOWER);
-        addMov(TEETH_LOWER, 0, -0.22*open, 0);
-        addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), -ang*0.12);
+        addMov(TEETH_LOWER, 0, -0.00*open, -0.18);
+        addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), -ang*0.10);
       }
-      // Dientes superiores: permanecen casi estáticos (opcional)
       if(TEETH_UPPER){
-        restore(TEETH_UPPER);
-        addMov(TEETH_UPPER, 0, +0.02*open, 0);
+        restore(TEETH_UPPER); // normalmente fijo, con micro ajuste
+        addMov(TEETH_UPPER, 0, +0.015*open, 0);
       }
 
-      const upDy = +0.42*open, upRx = +ang*0.16;
-      const dnDy = -0.68*open, dnRx = -ang*0.26;
+      // labios por apertura base (animación)
+      const upDy = -2.45*open, upRx = +ang*0.14;
+      const dnDy = -1.85*open, dnRx = -ang*0.22;
       (LIP_UP||[]).forEach(n=>{ mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1,0,0),  upRx); });
       (LIP_DOWN||[]).forEach(n=>{ mov(n, 0, dnDy, 0); rot(n, new THREE.Vector3(1,0,0), dnRx); });
     }
 
+    function applySeal(k){
+      if(!SEAL.enabled || k<=0) return;
+
+      const rxLower = THREE.MathUtils.degToRad(SEAL.lowerRxDeg) * k;
+      const rxUpper = THREE.MathUtils.degToRad(SEAL.upperRxDeg) * k;
+      const rxJaw   = THREE.MathUtils.degToRad(SEAL.jawRxDeg)   * k;
+      const rzCorner= THREE.MathUtils.degToRad(SEAL.cornerRotZDeg) * k;
+
+      // Inferior: CENTRO
+      (LIP_DOWN_CENTER||[]).forEach(n=>{
+        addMov(n, 0, +SEAL.lowerUpMid * k, 0);
+        addRot(n, new THREE.Vector3(1,0,0), rxLower);
+      });
+
+      // Inferior: COMISURAS (menos “up”, con pinch y rotación Z)
+      (LIP_DOWN_CORNERS||[]).forEach(n=>{
+        addMov(n, 0, +(SEAL.lowerUpMid * SEAL.lowerUpCornerScale) * k, 0);
+        const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
+        const dir = isLeft ? +1 : -1; // si invierte, cambia signo
+        addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
+        addRot(n, new THREE.Vector3(0,0,1), rzCorner * -dir);
+        addRot(n, new THREE.Vector3(1,0,0), rxLower * 0.7);
+      });
+
+      // Superior (suave)
+      (LIP_UP_CENTER||[]).forEach(n=>{
+        addMov(n, 0, -SEAL.upperDown * k, 0);
+        addRot(n, new THREE.Vector3(1,0,0), rxUpper * 0.8);
+      });
+      (LIP_UP_CORNERS||[]).forEach(n=>{
+        addMov(n, 0, -(SEAL.upperDown * 0.5) * k, 0);
+        addRot(n, new THREE.Vector3(1,0,0), rxUpper * 0.6);
+      });
+
+      // Mandíbula: micro cierre (acompaña dientes inferiores)
+      if(CTRL_JAW) addRot(CTRL_JAW, new THREE.Vector3(1,0,0), +rxJaw);
+      if(DEF_JAW)  addRot(DEF_JAW,  new THREE.Vector3(1,0,0), +rxJaw*0.7);
+      if(TEETH_LOWER) addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), +rxJaw*0.25);
+    }
+
     function applyTongue(t, open){
       if(!TONGUE || TONGUE.length===0 || open<=0) return;
-      const baseCurl = THREE.MathUtils.degToRad(18) * open;    // rizo
-      const wagAmp   = THREE.MathUtils.degToRad(6)  * open;    // lado a lado
+      const baseCurl = THREE.MathUtils.degToRad(18) * open;
+      const wagAmp   = THREE.MathUtils.degToRad(6)  * open;
       const wagSpd   = 3.2;
       TONGUE.forEach((n,i)=>{
         restore(n);
         const fall = 1 - i*0.18;
         const curl = baseCurl * fall;
         const wag  = Math.sin(t*wagSpd + i*0.7) * wagAmp * fall;
-        // curl hacia arriba (X) + wag lateral (Y)
         const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), -curl);
         const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), wag);
         n.quaternion.multiply(qx).multiply(qy).normalize();
-        // pequeño empuje hacia delante cuando abre
         addMov(n, 0, 0.02*open*fall, 0.01*open*fall);
       });
     }
@@ -656,12 +806,14 @@
       if (mixer && clock) mixer.update(clock.getDelta());
 
       const talkingNow = forceTalking || agentTalking;
+      const talkingFromMic = agentTalking && !forceTalking;
 
       const Lraw = levelOut;
       let targetOpen = 0;
       if (talkingNow) {
         const lvl = Math.max(0, Lraw - OUT_GATE);
-        const boosted = Math.pow(lvl * OUT_GAIN, OUT_GAMMA);
+        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1; // normalización mic
+        const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
         targetOpen = Math.min(boosted, 1.0);
         if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
       }
@@ -677,10 +829,8 @@
         actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
       }
 
-      // Mixer add-ons (labio sup)
       if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
 
-      // Boca/dientes manuales (mandíbula manda SIEMPRE)
       if (jawOpen >= 0.02) {
         applyMouth(clamp01(jawOpen * manualWeight));
       } else if (!talkingNow && mixerWeight === 0) {
@@ -688,19 +838,23 @@
         resetMouthPose();
       }
 
-      // Lengua
+      // sello de labios: más fuerte cuanto más cerrada la boca
+      const smoothstep = (a,b,x)=> {
+        const tt = Math.min(1, Math.max(0, (x-a)/(b-a)));
+        return tt*tt*(3-2*tt);
+      };
+      const sealK = 1.0 - smoothstep(1.08, 0.18, jawOpen);
+      applySeal(Math.min(1, Math.max(0, sealK)));
+
       applyTongue(t, clamp01(jawOpen));
 
-      // Brazos y tentáculos
       if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
       else { (ARM_L||[]).forEach(n=> restore(n)); (ARM_R||[]).forEach(n=> restore(n)); }
-      applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
 
-      // Idle
+      applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
       applyEyesIdle();
       applyHeadAndBodyIdle(t);
 
-      // HUD
       openTxt.textContent = jawOpen.toFixed(2);
       lvlTxt.textContent  = levelOut.toFixed(2);
       lvlBar.style.width  = Math.min(100, levelOut*100) + '%';
