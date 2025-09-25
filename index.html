@@ -2,17 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>KRANG — Lipsync + dientes + lengua (full window + sombras realistas)</title>
+  <title>KRANG — Lipsync + caja + puerta ajustable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
     :root { color-scheme: dark; }
-    html, body {
-      margin:0;
-      height:100dvh;
-      background:#000;
-      color:#eaeef5; font-family:system-ui, Segoe UI, Roboto, sans-serif;
-      overflow:hidden;
-    }
+    html, body { margin:0; height:100dvh; background:#000; color:#eaeef5; font-family:system-ui, Segoe UI, Roboto, sans-serif; overflow:hidden; }
     header {
       position: fixed; top: 10px; left: 20px;
       padding:10px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
@@ -25,10 +19,7 @@
     button[disabled] { opacity:.5; cursor:not-allowed; }
     #status { margin-left:auto; opacity:.9; font-size:12px; }
 
-    #stage {
-      position: fixed; inset:0; display:block; touch-action:none; background:transparent;
-      width:100vw; height:100dvh;
-    }
+    #stage { position: fixed; inset:0; display:block; touch-action:none; background:transparent; width:100vw; height:100dvh; }
 
     #loader { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       background:radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11,15,26,0.9) 40%, #0b0f1a 70%);
@@ -47,7 +38,7 @@
     @media (max-width: 640px) { header { left: 8px; right: 8px; top:8px; justify-content:space-between } }
 
     body{
-      background-image: url("./img/fondo.png");
+      /* background-image: url("./img/fondo.png"); */
       background-size: 100% 100%;
       background-position: center;
       background-repeat: no-repeat;
@@ -108,26 +99,40 @@
     // ---------- CONFIG ----------
     const AGENT_ID = 'agent_5501k5ckwydxem1s0sdzjj17ej9m';
     const WP_BASE  = 'https://test-ai.garabatoweb.com';
-    const GLB_URL  = './22222.glb';
+    const GLB_URL  = './333.glb';
+
+    // === CAJA (envolvente) ===
+    const BOX_URL = './caja.glb';
+    const BOX_PAD = 0.55;                // 6% más grande que el avatar
+    const BOX_OFFSET_MODE = 'ratio';      // 'ratio' (% del tamaño del avatar) | 'world' (unidades)
+    const BOX_OFFSET = { x: 0.00, y: 0.34, z: 0.00 }; // subir/bajar caja (si ratio: 10% de la altura)
+    const BOX_OPACITY = 1.0;
+    const BOX_WIREFRAME = true;
+    const BOX_ROT_INIT = { x:0, y:0, z:0, degrees:false };
+
+    // === PUERTA: CONFIG ===
+    const DOOR_HINTS = ['Puerta', 'PUERTA', 'Door', 'DOOR']; // nombres posibles del nodo de puerta en caja.glb
+    const DOOR_ALIGN = 'none';           // 'center' | 'bottom' | 'none'
+    const DOOR_OFFSET_MODE = 'ratio';      // 'ratio' (% del tamaño final de la caja) | 'world'
+    const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 }; // +8% arriba después de alinear
+    // === FIN PUERTA: CONFIG ===
+
     const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
 
-    const USE_MIXER_MOUTH = true;
+    const TALK_SOURCE = 'auto';            // 'auto' usa clip si hay; si no, lipsync por audio
+    const TALK_NAME_HINTS = ['talk','habla','speak','lip','mouth','viseme','phoneme'];
 
+    const ENABLE_IDLE_SWAY = false;        // sin “tambaleo” lateral
+
+    // Lipsync manual/mixer cuando no hay clip
+    const USE_MIXER_MOUTH = true;
     const MOUTH_MIXER_WHEN_TALK   = 0.55;
-    const MOUTH_MIXER_WHEN_SILENT = 0.0;
+    const MOUTH_MIXER_WHEN_SILENT = 0.5;
     const MOUTH_MANUAL_WHEN_TALK   = 0.55;
-    const MOUTH_MANUAL_WHEN_SILENT = 0.0;
+    const MOUTH_MANUAL_WHEN_SILENT = 0.5;
 
     const ALWAYS_CENTER_INIT = true;
-
-    const VIEW = {
-      faceFront:true,
-      targetYOffsetRatio:0.65,
-      fitPadding:0.75,
-      extraBack:0.41,
-      targetXOffsetRatio: 0.00
-    };
-
+    const VIEW= { faceFront:true, targetYOffsetRatio:0.36, fitPadding:0.65, extraBack:0.34, targetXOffsetRatio: 0.10 };
     const FOV = 40;
     const FIGURE_TILT_DEG = { x: -20, y: 0, z: 0 };
 
@@ -139,12 +144,11 @@
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 2.85;
 
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(/Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV, 1, 0.01, 100);
+    const camera = new THREE.PerspectiveCamera(/Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV, 1, 0.01, 1000);
     camera.position.set(3,1.6,4);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -156,19 +160,16 @@
     scene.add(pivot);
 
     canvas.addEventListener('wheel', e => e.preventDefault(), { passive:false });
-    window.addEventListener('gesturestart', e => e.preventDefault(), { passive:false });
-    window.addEventListener('gesturechange', e => e.preventDefault(), { passive:false });
-    window.addEventListener('gestureend', e => e.preventDefault(), { passive:false });
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => window.addEventListener(ev, e=>e.preventDefault(), { passive:false }));
 
     let avatar = null;
 
-    // === viewport seguro ===
-    function getViewportSize(){
-      const vv = window.visualViewport;
-      if (vv) return { w: Math.round(vv.width), h: Math.round(vv.height) };
-      return { w: window.innerWidth, h: window.innerHeight };
-    }
+    // CAJA refs
+    let containerBox = null;
+    let containerBoxPivot = null;
 
+    // === viewport
+    function getViewportSize(){ const vv = window.visualViewport; return vv ? { w: Math.round(vv.width), h: Math.round(vv.height) } : { w: innerWidth, h: innerHeight }; }
     function onResize(){
       const { w, h } = getViewportSize();
       renderer.setSize(w, h, false);
@@ -186,6 +187,16 @@
     const findExact = (root, name)=>{ let f=null; root.traverse(o=>{ if(!f && o.name===name) f=o; }); return f; };
     const findFirst = (root, names)=>{ for(const n of names){ const o=findExact(root,n); if(o) return o; } return null; };
     const findRegex = (root, regex)=>{ let found=[]; root.traverse(o=>{ if(regex.test(o.name)) found.push(o); }); return found; };
+
+    function findFirstByHints(root, hints){
+      const rx = new RegExp(hints.map(h=>`(${h})`).join('|'), 'i');
+      const found = [];
+      root.traverse(o => { if (rx.test(o.name)) found.push(o); });
+      return found[0] || null;
+    }
+    function getLocalFromWorldPoint(obj, worldPt){
+      return obj.parent ? obj.parent.worldToLocal(worldPt.clone()) : worldPt.clone();
+    }
 
     const restQ = new Map(), restP = new Map();
     const saveRest = o=>{ if(!o) return; if(!restQ.has(o)) restQ.set(o, o.quaternion.clone()); if(!restP.has(o)) restP.set(o, o.position.clone()); };
@@ -208,6 +219,48 @@
     }
 
     function copyPose(from, to){ if(!from || !to) return; to.position.copy(from.position); to.quaternion.copy(from.quaternion); }
+
+    // ---------- BOUNDS ----------
+    function computeRobustBounds(root){
+      root.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      let found = false;
+      root.traverse(o=>{
+        if (o.isMesh || o.isSkinnedMesh){
+          const g = o.geometry;
+          if (g){
+            if (!g.boundingBox) g.computeBoundingBox();
+            const bb = g.boundingBox?.clone();
+            if (bb && isFinite(bb.min.x) && isFinite(bb.max.x)){
+              bb.applyMatrix4(o.matrixWorld);
+              box.union(bb);
+              found = true;
+            }
+          }
+        }
+        if (o.isBone){
+          const p = new THREE.Vector3(); o.getWorldPosition(p);
+          box.expandByPoint(p); found = true;
+        }
+      });
+      if (!found || !isFinite(box.min.x) || !isFinite(box.max.x)) return null;
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      return { box, sphere };
+    }
+    function computeBaseSphere(object){ const b = computeRobustBounds(object); return b ? b.sphere : null; }
+    function normalizeAndCenter(object){
+      const b = computeRobustBounds(object);
+      if (!b) { console.warn('[bounds] No se pudo calcular'); return; }
+      const { box, sphere } = b;
+      const size = box.getSize(new THREE.Vector3());
+      const maxSide = Math.max(size.x, size.y, size.z);
+      const center = sphere.center;
+      object.position.x -= center.x;
+      object.position.z -= center.z;
+      const target = 2.5;
+      if (maxSide < 0.05 || maxSide > 50){ object.scale.multiplyScalar(target / maxSide); }
+      object.userData.baseSphere = sphere;
+    }
 
     // ---------- RIG ----------
     let ROOT=null, DEF_HEAD=null, CTRL_HEAD_UP=null;
@@ -240,29 +293,160 @@
     const ktx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/'); ktx2.detectSupport(renderer); loader.setKTX2Loader(ktx2);
     loader.setMeshoptDecoder(MeshoptDecoder);
 
-    let mixer=null, clock=null, actionBody=null, actionMouth=null;
+    let mixer=null, clock=null, actionBody=null, actionMouth=null, actionTalk=null;
 
-    function computeBaseSphere(object){
-      const box = new THREE.Box3().setFromObject(object);
-      const sphere = box.getBoundingSphere(new THREE.Sphere());
-      return sphere;
-    }
+    console.log('[GLB] Cargando:', GLB_URL);
+    loader.load(GLB_URL, (gltf)=>{
+      avatar = gltf.scene;
+      if (!avatar) { throw new Error('GLB sin escena'); }
 
-    function normalizeAndCenter(object){
-      const box = new THREE.Box3().setFromObject(object);
-      const size=box.getSize(new THREE.Vector3());
-      const center=box.getCenter(new THREE.Vector3());
-      const maxSide = Math.max(size.x, size.y, size.z);
-      if (!isFinite(maxSide) || maxSide===0) return;
-      object.position.x -= center.x;
-      object.position.z -= center.z;
-      const target = 2.5;
-      if (maxSide < 0.05 || maxSide > 50) {
-        const s = target / maxSide;
-        object.scale.multiplyScalar(s);
+      normalizeAndCenter(avatar);
+      disableFrustumCulling(avatar);
+      pivot.add(avatar);
+
+      avatar.traverse(o=>{
+        if (o.visible === false) o.visible = true;
+        if (o.isMesh || o.isSkinnedMesh){
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          for (const m of mats){
+            if (!m) continue;
+            if (m.opacity === 0) m.opacity = 1;
+            if (m.transparent && m.opacity >= 1) m.transparent = false;
+            if ('side' in m) m.side = THREE.DoubleSide;
+            if ('roughness' in m) m.roughness = Math.min(0.65, Math.max(0.0, m.roughness ?? 0.5));
+            if ('metalness' in m) m.metalness = Math.min(0.45, Math.max(0.0, m.metalness ?? 0.05));
+            m.depthWrite = true;
+            m.needsUpdate = true;
+          }
+        }
+      });
+
+      if (!avatar.userData.baseSphere){
+        const s = computeBaseSphere(avatar);
+        if (s) avatar.userData.baseSphere = s;
       }
-    }
 
+      // === NODOS (DEF_*) ===
+      function hasSideL(n){ return /\.L\b|_L\b|\bL\b/.test(n.name); }
+      function hasSideR(n){ return /\.R\b|_R\b|\bR\b/.test(n.name); }
+      function isCorner(n){ return hasSideL(n) || hasSideR(n) || /CORNER/i.test(n.name); }
+
+      ROOT         = findFirst(avatar, ['ROOT']) || findRegex(avatar, /\bKRANG_RIG\b/i)[0] || avatar;
+      DEF_HEAD     = findFirst(avatar, ['DEF_HEAD_UP','DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
+      CTRL_HEAD_UP = null;
+
+      CTRL_MOUTH   = null;
+      CTRL_JAW     = findFirst(avatar, ['CTRL_JAW']) || null;
+      DEF_JAW      = findFirst(avatar, ['DEF_JAW']) || findRegex(avatar, /DEF[_-]?JAW/i)[0];
+
+      TEETH_LOWER  = findFirst(avatar, ['DEF_TEETH_DOWN']) || findRegex(avatar, /(DEF_)?TEETH.*(DOWN|LOWER)/i)[0] || null;
+      TEETH_UPPER  = null;
+
+      const lipsAnyUpper = findRegex(avatar, /\bDEF_LIP(?!_DOWN)/i);
+      const lipsAnyLower = findRegex(avatar, /\bDEF_LIP_DOWN_/i);
+      LIP_UP   = lipsAnyUpper;
+      LIP_DOWN = lipsAnyLower;
+
+      LIP_UP_CORNERS    = (LIP_UP||[]).filter(isCorner);
+      LIP_UP_CENTER     = (LIP_UP||[]).filter(n => !isCorner(n));
+      LIP_DOWN_CORNERS  = (LIP_DOWN||[]).filter(isCorner);
+      LIP_DOWN_CENTER   = (LIP_DOWN||[]).filter(n => !isCorner(n));
+
+      OJO_L = findFirst(avatar, ['DEF_EYE.L']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)L\b/i)[0];
+      OJO_R = findFirst(avatar, ['DEF_EYE.R']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)R\b/i)[0];
+
+      const tongueRaw = findRegex(avatar, /DEF[_-]?TONGUE[_-]?(\d+)/i);
+      TONGUE = tongueRaw.slice().sort((a,b)=>{
+        const ai = parseInt((a.name.match(/(\d+)/)||[])[1]||'0',10);
+        const bi = parseInt((b.name.match(/(\d+)/)||[])[1]||'0',10);
+        return ai - bi;
+      });
+
+      const tentL = findRegex(avatar, /DEF[_-]?TENTACULO[_-]?B[_-]?\d+\.(L|_L|\bL\b)/i);
+      const tentR = findRegex(avatar, /DEF[_-]?TENTACULO[_-]?B[_-]?\d+\.(R|_R|\bR\b)/i);
+      FK_LEFT  = tentL;
+      FK_RIGHT = tentR;
+
+      ;[ROOT,DEF_HEAD,CTRL_HEAD_UP,CTRL_MOUTH,CTRL_JAW,DEF_JAW,TEETH_LOWER,TEETH_UPPER,OJO_L,OJO_R,
+        ...LIP_UP,...LIP_DOWN,...FK_LEFT,...FK_RIGHT, ...ARM_L, ...ARM_R, ...TONGUE].forEach(saveRest);
+
+      // Encuadre + entorno
+      onResize();
+      frameToView(avatar, VIEW);
+      addCinematicLights(avatar);
+      buildShadowReceiversAround(avatar);
+
+      const tmpBox = computeRobustBounds(avatar)?.box;
+      if (tmpBox){
+        const sz = tmpBox.getSize(new THREE.Vector3()).y;
+        controls.target.y -= 0.08 * sz;
+      } else {
+        controls.target.y -= 0.1;
+      }
+      camera.position.y -= 0.05;
+      controls.update();
+
+      // === CAJA: crear envolvente (intenta caja.glb, si no fallback) ===
+      addContainerBoxFor(avatar).catch(()=>{});
+
+      document.getElementById('loader').style.display='none';
+      document.getElementById('hud').style.display='none';
+
+      // --- Mezclador / Clips ---
+      if (gltf.animations && gltf.animations.length) {
+        mixer = new THREE.AnimationMixer(avatar);
+        clock = new THREE.Clock();
+
+        const rxMouthish = /(MOUTH|JAW|LIP|TONGUE|NOSE|BOCA|DIENTE|LABIO|Cabeza\.morphTargetInfluences|Head\.morphTargetInfluences)/i;
+        const rxTeethAny = /(Teeth|Dientes)/i;
+
+        let mouthTracks = [], bodyTracks = [], maxDuration = 0;
+        for (const clip of gltf.animations) {
+          maxDuration = Math.max(maxDuration, clip.duration);
+          for (const tr of clip.tracks) {
+            const isMouth = rxMouthish.test(tr.name);
+            const isTeeth = rxTeethAny.test(tr.name);
+            if (isMouth) { if (!isTeeth) mouthTracks.push(tr); }
+            else bodyTracks.push(tr);
+          }
+        }
+
+        if (bodyTracks.length){
+          const clipBody  = new THREE.AnimationClip('BodyOnly', maxDuration || 1, bodyTracks);
+          actionBody  = mixer.clipAction(clipBody);  actionBody.play();
+        }
+
+        const talkByName = gltf.animations.find(c => TALK_NAME_HINTS.some(h=> c.name?.toLowerCase().includes(h)));
+        let talkClip = talkByName || (mouthTracks.length ? new THREE.AnimationClip('TalkSynth', maxDuration || 1, mouthTracks) : null);
+
+        if (talkClip){
+          actionTalk = mixer.clipAction(talkClip);
+          actionTalk.setLoop(THREE.LoopRepeat, Infinity);
+          actionTalk.clampWhenFinished = false;
+          actionTalk.enabled = true;
+          actionTalk.play();
+          actionTalk.setEffectiveWeight(0.0);
+        } else if (mouthTracks.length){
+          const clipMouth = new THREE.AnimationClip('MouthOnlyNoTeeth', maxDuration || 1, mouthTracks);
+          actionMouth = mixer.clipAction(clipMouth); actionMouth.play();
+          actionMouth.enabled = true;
+          actionMouth.setEffectiveWeight(0.0);
+        }
+      }
+
+      pivot.rotation.set(
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.x),
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.y),
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.z)
+      );
+
+    }, (ev)=>{}, (err)=>{
+      console.error('GLB load error:', err);
+      document.getElementById('loader').querySelector('.loader-text').textContent = 'Error loading 3D avatar';
+      alert('No se pudo cargar el GLB. Revisa la consola (F12) para detalles.');
+    });
+
+    // ---------- ILUMINACIÓN / SOMBRAS ----------
     function addCinematicLights(target) {
       const amb = new THREE.AmbientLight(0xffffff, 0.30); scene.add(amb);
 
@@ -273,8 +457,8 @@
       key.shadow.radius = 4;
       key.shadow.bias = -0.00018;
 
-      const box = new THREE.Box3().setFromObject(target || pivot);
-      const s = box.getSize(new THREE.Vector3()).length() * 0.6 || 3;
+      const b = computeRobustBounds(target || pivot);
+      const s = (b?.box.getSize(new THREE.Vector3()).length() ?? 5) * 0.6;
       key.shadow.camera.near = 0;
       key.shadow.camera.far  = 10;
       key.shadow.camera.left = -s; key.shadow.camera.right = s;
@@ -289,9 +473,9 @@
       rim.position.set(0.5, 0.9, -1.2);
       scene.add(rim);
     }
-
     function buildShadowReceiversAround(object) {
-      const box = new THREE.Box3().setFromObject(object);
+      const b = computeRobustBounds(object);
+      const box = b?.box ?? new THREE.Box3().setFromObject(object);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
 
@@ -317,130 +501,177 @@
       scene.add(rightWall);
     }
 
-    console.log('[GLB] Cargando:', GLB_URL);
-    loader.load(GLB_URL, (gltf)=>{
-      avatar = gltf.scene;
-      if (!avatar) { throw new Error('GLB sin escena'); }
+    // === CAJA: Rotación programática (si quieres girarla por código) ===
+    function setBoxRotation({x=0,y=0,z=0,degrees=true}={}){
+      if(!containerBoxPivot) return;
+      if(degrees){
+        containerBoxPivot.rotation.set(
+          THREE.MathUtils.degToRad(x),
+          THREE.MathUtils.degToRad(y),
+          THREE.MathUtils.degToRad(z)
+        );
+      }else{
+        containerBoxPivot.rotation.set(x,y,z);
+      }
+    }
 
-      normalizeAndCenter(avatar);
-      disableFrustumCulling(avatar);
-      pivot.add(avatar);
+    // === CAJA: Creación + offset aplicado + ajuste de puerta ===
+    async function addContainerBoxFor(targetObj){
+      const b = computeRobustBounds(targetObj);
+      if (!b) { console.warn('[box] No bounds, fallback'); return addFallbackBox(targetObj); }
+      const size = b.box.getSize(new THREE.Vector3());
+      const center = b.box.getCenter(new THREE.Vector3());
+      const desired = new THREE.Vector3(size.x*BOX_PAD, size.y*BOX_PAD, size.z*BOX_PAD);
 
-      avatar.traverse(o=>{ if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      avatar.traverse(o=>{
-        if (o.isMesh && o.material && 'roughness' in o.material) {
-          o.material.roughness = Math.min(0.55, o.material.roughness ?? 0.6);
-          o.material.metalness = Math.max(0.05, o.material.metalness ?? 0.0);
-          o.material.needsUpdate = true;
-        }
-      });
+      const pivotBox = new THREE.Group();
+      pivotBox.position.copy(center);
+      if (BOX_OFFSET_MODE === 'ratio') {
+        pivotBox.position.x += BOX_OFFSET.x * size.x;
+        pivotBox.position.y += BOX_OFFSET.y * size.y;
+        pivotBox.position.z += BOX_OFFSET.z * size.z;
+      } else {
+        pivotBox.position.x += BOX_OFFSET.x;
+        pivotBox.position.y += BOX_OFFSET.y;
+        pivotBox.position.z += BOX_OFFSET.z;
+      }
+      pivot.add(pivotBox);
+      containerBoxPivot = pivotBox;
 
-      // === NODOS ===
-      ROOT         = findFirst(avatar, ['ROOT']) || findRegex(avatar, /ROOT|Armature|Hip/i)[0];
-      DEF_HEAD     = findFirst(avatar, ['DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD|Cabeza|Head/i)[0];
-      CTRL_HEAD_UP = findFirst(avatar, ['CTRL_HEAD_UP']) || findRegex(avatar, /CTRL[_-]?HEAD/i)[0];
+      try{
+        await new Promise((resolve, reject)=>{
+          loader.load(BOX_URL, (glb)=>{
+            const boxRoot = glb.scene;
+            if (!boxRoot) return reject(new Error('caja.glb sin escena'));
+            disableFrustumCulling(boxRoot);
 
-      CTRL_MOUTH   = findFirst(avatar, ['CTRL_MOUTH','ROT_MOUTH']) || findRegex(avatar, /MOUTH|BOCA/i)[0];
-      CTRL_JAW     = findFirst(avatar, ['CTRL_JAW']) || findRegex(avatar, /JAW|MANDIB/i)[0];
-      DEF_JAW      = findFirst(avatar, ['DEF_JAW']) || findRegex(avatar, /DEF[_-]?JAW/i)[0];
+            const bb = computeRobustBounds(boxRoot);
+            if (!bb) return reject(new Error('caja.glb sin bounds'));
+            const os = bb.box.getSize(new THREE.Vector3());
+            const oc = bb.box.getCenter(new THREE.Vector3());
 
-      TEETH_LOWER  = findFirst(avatar, ['CTRL_TEETH_DOWN','DEF_TEETH_DOWN','Dientes']) || findRegex(avatar, /(Teeth|Dientes).*(Down|Inferior)?/i)[0];
-      TEETH_UPPER  = findFirst(avatar, ['CTRL_TEETH_UP','DEF_TEETH_UP']) || findRegex(avatar, /(Teeth|Dientes).*(Up|Superior)/i)?.[0] || null;
+            // Recentrar y escalar
+            boxRoot.position.sub(oc);
+            const sx = desired.x / (os.x || 1);
+            const sy = desired.y / (os.y || 1);
+            const sz = desired.z / (os.z || 1);
+            boxRoot.scale.set(sx, sy, sz);
 
-      const lipsUp  = findRegex(avatar, /(DEF_)?LIP.*UP|DEF_LIP_UP|LIP_UP|UP_CENTER/i);
-      const lipsDn  = findRegex(avatar, /(DEF_)?LIP.*DOWN|DEF_LIP_DOWN|LIP_DOWN|DOWN_CENTER/i);
-      const lipCorners = findRegex(avatar, /(DEF_)?LIP.*CORNER|LIP_CORNER/i);
-      const preferDEF = (arr)=>{ const def=arr.filter(n=>/(^|_)DEF_/.test(n.name)); return def.length? def : arr; };
-      LIP_UP   = preferDEF([...lipsUp, ...lipCorners].filter(Boolean));
-      LIP_DOWN = preferDEF([...lipsDn, ...lipCorners].filter(Boolean));
+            // Materiales
+            boxRoot.traverse(o=>{
+              if (o.isMesh || o.isSkinnedMesh){
+                const mats = Array.isArray(o.material) ? o.material : [o.material];
+                for (const m of mats){
+                  if (!m) continue;
+                  m.transparent = true;
+                  m.opacity = 0.15;
+                  if ('roughness' in m) m.roughness = 0.9;
+                  if ('metalness' in m) m.metalness = 0.0;
+                  if ('side' in m) m.side = THREE.DoubleSide;
+                  m.depthWrite = false;
+                  m.needsUpdate = true;
+                }
+              }
+            });
 
-      // separar centro vs comisuras
-      const isCorner = (n)=> /CORNER/i.test(n.name);
-      LIP_DOWN_CORNERS = LIP_DOWN.filter(isCorner);
-      LIP_DOWN_CENTER  = LIP_DOWN.filter(n => !isCorner(n));
-      LIP_UP_CORNERS   = LIP_UP.filter(isCorner);
-      LIP_UP_CENTER    = LIP_UP.filter(n => !isCorner(n));
+            containerBox = boxRoot;
+            pivotBox.add(containerBox);
 
-      OJO_L = findFirst(avatar, ['CTRL_EYE.L','Ojo_Izquierdo']) || findRegex(avatar, /(EYE|Ojo).*L/i)[0];
-      OJO_R = findFirst(avatar, ['CTRL_EYE.R','Ojo_derecho'])  || findRegex(avatar, /(EYE|Ojo).*R/i)[0];
+            // Rotación inicial
+            setBoxRotation(BOX_ROT_INIT);
 
-      const fkLeftNames  = ['CTRL_FK_TENTACULO_B_02.L','CTRL_FK_TENTACULO_B_03.L','CTRL_FK_TENTACULO_B_04.L','CTRL_FK_TENTACULO_B_05.L','CTRL_FK_TENTACULO_B_06.L','CTRL_FK_TENTACULO_B_07.L'];
-      const fkRightNames = ['CTRL_FK_TENTACULO_B_02.R','CTRL_FK_TENTACULO_B_03.R','CTRL_FK_TENTACULO_B_04.R','CTRL_FK_TENTACULO_B_05.R','CTRL_FK_TENTACULO_B_06.R','CTRL_FK_TENTACULO_B_07.R'];
-      FK_LEFT  = fkLeftNames .map(n=>findExact(avatar,n)).filter(Boolean);
-      FK_RIGHT = fkRightNames.map(n=>findExact(avatar,n)).filter(Boolean);
-      if (FK_LEFT.length === 0)  FK_LEFT  = findRegex(avatar, /(TENT|Tentaculo|Tentacle).*(\.L|_L| L)$/i);
-      if (FK_RIGHT.length === 0) FK_RIGHT = findRegex(avatar, /(TENT|Tentaculo|Tentacle).*(\.R|_R| R)$/i);
+            // === PUERTA: AJUSTE DE POSICIÓN ===
+            try {
+              const door = findFirstByHints(containerBox, DOOR_HINTS);
+              if (door) {
+                const bBox = computeRobustBounds(containerBox)?.box;
+                if (bBox) {
+                  const boxSize = bBox.getSize(new THREE.Vector3());
+                  const boxHalfY = boxSize.y * 0.5;
 
-      const armLeftNames  = ['CTRL_ARM_UP.L', 'CTRL_ARM_LOWER.L', 'CTRL_HAND.L'];
-      const armRightNames = ['CTRL_ARM_UP.R', 'CTRL_ARM_LOWER.R', 'CTRL_HAND.R'];
-      ARM_L = armLeftNames .map(n => findExact(avatar, n)).filter(Boolean);
-      ARM_R = armRightNames.map(n => findExact(avatar, n)).filter(Boolean);
-      if (ARM_L.length === 0) ARM_L = findRegex(avatar, /(ARM|Hombro|Brazo).*L/i);
-      if (ARM_R.length === 0) ARM_R = findRegex(avatar, /(ARM|Hombro|Brazo).*R/i);
+                  const dB = computeRobustBounds(door);
+                  if (dB && DOOR_ALIGN !== 'none') {
+                    if (DOOR_ALIGN === 'center') {
+                      const worldCenter = dB.box.getCenter(new THREE.Vector3());
+                      const localCenter = getLocalFromWorldPoint(door, worldCenter);
+                      door.position.sub(localCenter);
+                    } else if (DOOR_ALIGN === 'bottom') {
+                      const worldMin = dB.box.min.clone();
+                      const localMin = getLocalFromWorldPoint(door, worldMin);
+                      const targetBottom = -boxHalfY + (0.02 * boxSize.y); // 2% por encima del piso
+                      const deltaY = targetBottom - localMin.y;
+                      door.position.y += deltaY;
+                    }
+                  }
 
-      const tongueCtrls = ['CTRL_TONGUE_01','CTRL_TONGUE_02','CTRL_TONGUE_03','CTRL_TONGUE_04','CTRL_MASTER_TONGUE'];
-      TONGUE = tongueCtrls.map(n=>findExact(avatar,n)).filter(Boolean);
-      if (TONGUE.length===0) TONGUE = findRegex(avatar, /(CTRL|DEF)[_\-]?TONGUE(_\d+)?|Lengua|Tongue/i);
-
-      ;[ROOT,DEF_HEAD,CTRL_HEAD_UP,CTRL_MOUTH,CTRL_JAW,DEF_JAW,TEETH_LOWER,TEETH_UPPER,OJO_L,OJO_R,
-        ...LIP_UP,...LIP_DOWN,...FK_LEFT,...FK_RIGHT, ...ARM_L, ...ARM_R, ...TONGUE].forEach(saveRest);
-
-      avatar.userData.baseSphere = computeBaseSphere(avatar);
-
-      onResize();
-      frameToView(avatar, VIEW);
-      addCinematicLights(avatar);
-      buildShadowReceiversAround(avatar);
-
-      const tmpBox = new THREE.Box3().setFromObject(avatar);
-      controls.target.y -= 0.08 * tmpBox.getSize(new THREE.Vector3()).y;
-      camera.position.y -= 0.05;
-      controls.update();
-
-      document.getElementById('loader').style.display='none';
-      document.getElementById('hud').style.display='none';
-
-      if (gltf.animations && gltf.animations.length) {
-        mixer = new THREE.AnimationMixer(avatar);
-        clock = new THREE.Clock();
-
-        const rxMouthish = /(MOUTH|JAW|LIP|TONGUE|NOSE|BOCA|DIENTE|LABIO|Cabeza\.morphTargetInfluences|Head\.morphTargetInfluences)/i;
-        const rxTeethAny = /(Teeth|Dientes)/i;
-
-        let mouthTracks = [], bodyTracks = [], maxDuration = 0;
-        for (const clip of gltf.animations) {
-          maxDuration = Math.max(maxDuration, clip.duration);
-          for (const tr of clip.tracks) {
-            const isMouth = rxMouthish.test(tr.name);
-            const isTeeth = rxTeethAny.test(tr.name);
-            if (isMouth) {
-              // Nota: dejamos dientes FUERA del mixer de boca; los driveremos manualmente con la mandíbula
-              if (!isTeeth) mouthTracks.push(tr);
-            } else {
-              bodyTracks.push(tr);
+                  // Offset adicional de la puerta
+                  if (DOOR_OFFSET_MODE === 'ratio') {
+                    door.position.x += DOOR_OFFSET.x * boxSize.x;
+                    door.position.y += DOOR_OFFSET.y * boxSize.y; // << sube/baja aquí
+                    door.position.z += DOOR_OFFSET.z * boxSize.z;
+                  } else {
+                    door.position.x += DOOR_OFFSET.x;
+                    door.position.y += DOOR_OFFSET.y;
+                    door.position.z += DOOR_OFFSET.z;
+                  }
+                }
+              } else {
+                console.warn('[puerta] No se encontró nodo con nombre ~', DOOR_HINTS.join(', '));
+              }
+            } catch (e) {
+              console.warn('[puerta] Ajuste falló:', e);
             }
-          }
-        }
+            // === FIN PUERTA ===
 
-        const clipBody  = new THREE.AnimationClip('BodyOnly',  maxDuration || 1, bodyTracks);
-        const clipMouth = new THREE.AnimationClip('MouthOnlyNoTeeth', maxDuration || 1, mouthTracks);
-        actionBody  = mixer.clipAction(clipBody);  actionBody.play();
-        actionMouth = mixer.clipAction(clipMouth); actionMouth.play();
-        actionMouth.enabled = true;
-        actionMouth.setEffectiveWeight(0.0);
+            resolve();
+          }, undefined, reject);
+        });
+      }catch(e){
+        console.warn('[box] No se pudo cargar caja.glb, fallback:', e.message);
+        addFallbackBox(targetObj, desired, center, pivotBox);
+      }
+    }
+
+    function addFallbackBox(targetObj, desired=null, center=null, pivotBox=null){
+      const b = computeRobustBounds(targetObj);
+      if (!b) return;
+
+      const size = desired || b.box.getSize(new THREE.Vector3()).multiplyScalar(BOX_PAD);
+      const c = center || b.box.getCenter(new THREE.Vector3());
+
+      const pv = pivotBox || new THREE.Group();
+      if (!pivotBox){
+        pv.position.copy(c);
+        if (BOX_OFFSET_MODE === 'ratio') {
+          pv.position.x += BOX_OFFSET.x * size.x;
+          pv.position.y += BOX_OFFSET.y * size.y;
+          pv.position.z += BOX_OFFSET.z * size.z;
+        } else {
+          pv.position.x += BOX_OFFSET.x;
+          pv.position.y += BOX_OFFSET.y;
+          pv.position.z += BOX_OFFSET.z;
+        }
+        pivot.add(pv);
+        containerBoxPivot = pv;
       }
 
-      pivot.rotation.set(
-        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.x),
-        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.y),
-        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.z)
-      );
+      const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x66aaff,
+        wireframe: BOX_WIREFRAME,
+        transparent: true,
+        opacity: BOX_OPACITY,
+        depthWrite: false
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0,0,0);
+      mesh.renderOrder = -10;
 
-    }, (ev)=>{}, (err)=>{
-      console.error('GLB load error:', err);
-      document.getElementById('loader').querySelector('.loader-text').textContent = 'Error loading 3D avatar';
-      alert('No se pudo cargar el GLB. Revisa la consola (F12) para detalles.');
-    });
+      pv.add(mesh);
+      containerBox = mesh;
+
+      setBoxRotation(BOX_ROT_INIT);
+    }
+    // === FIN CAJA ===
 
     // ---------- ENCUADRE ----------
     function frameToView(object, {
@@ -450,11 +681,15 @@
       faceFront=true,
       targetXOffsetRatio=0.00
     } = {}){
-      const sphere = object.userData.baseSphere || new THREE.Box3().setFromObject(object).getBoundingSphere(new THREE.Sphere());
-      if (!sphere || !isFinite(sphere.radius)) return;
-
+      let sphere = object.userData.baseSphere;
+      if (!sphere || !isFinite(sphere.radius) || sphere.radius===0){
+        const b = computeRobustBounds(object);
+        if (!b) return;
+        sphere = b.sphere;
+        object.userData.baseSphere = sphere;
+      }
       const center = sphere.center.clone();
-      const sizeY  = sphere.radius * 2;
+      const sizeY  = Math.max(0.001, sphere.radius * 2);
       const fovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
       const dist   = ((sphere.radius * fitPadding) / Math.sin(fovRad)) * extraBack;
 
@@ -469,7 +704,7 @@
       camera.position.copy(target).add(dir);
 
       camera.near = Math.max(0.01, (sphere.radius) / 200);
-      camera.far  = Math.max(100, sphere.radius * 40);
+      camera.far  = Math.max(1000, sphere.radius * 40);
       camera.updateProjectionMatrix();
 
       controls.target.copy(target);
@@ -482,7 +717,6 @@
     let conversation=null, volPoller=null, levelOut=0;
     let isConnecting = false;
 
-    // normalización de mic
     let micGain = 1;
     let micCalibrated = false;
     async function calibrateMicGain(ms = 700) {
@@ -510,7 +744,7 @@
     listMics(); navigator.mediaDevices.addEventListener?.('devicechange', listMics);
 
     async function getWebRTCToken(){
-      const r=await fetch(FETCH_WEBRTC_TOKEN_URL,{credentials:'omit'});
+      const r=await fetch(`${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`,{credentials:'omit'});
       if(!r.ok) throw new Error('Could not obtain WebRTC token');
       const {token}=await r.json(); return token;
     }
@@ -574,13 +808,8 @@
               levelOut = (1-ALPHA)*levelOut + ALPHA*v;
 
               const now = performance.now();
-              if(levelOut >= THRESH_ON){
-                aboveSince = aboveSince || now; belowSince = 0;
-                if(!agentTalking && (now - aboveSince) >= HOLD_ON_MS) agentTalking = true;
-              } else if(levelOut <= THRESH_OFF){
-                belowSince = belowSince || now; aboveSince = 0;
-                if(agentTalking && (now - belowSince) >= HOLD_OFF_MS) agentTalking = false;
-              }
+              if(levelOut >= THRESH_ON){ aboveSince = aboveSince || now; belowSince = 0; if(!agentTalking && (now - aboveSince) >= HOLD_ON_MS) agentTalking = true; }
+              else if(levelOut <= THRESH_OFF){ belowSince = belowSince || now; aboveSince = 0; if(agentTalking && (now - belowSince) >= HOLD_OFF_MS) agentTalking = false; }
 
               lvlTxt.textContent = levelOut.toFixed(2);
               lvlBar.style.width = Math.min(100, levelOut*100) + '%';
@@ -590,7 +819,7 @@
         },60);
 
         setUIConnected(true);
-        calibrateMicGain(); // normalización mic
+        calibrateMicGain();
       }catch(e){
         console.error(e);
         statusElSet('failed');
@@ -610,7 +839,7 @@
       setUIConnected(false);
     };
 
-    // ---------- ANIMACIÓN / CARA ----------
+    // ---------- ANIMACIÓN ----------
     function applyMixerAdditives(open){
       if (!open) return;
       const upDy = +0.08 * open;
@@ -621,22 +850,15 @@
     let eyesCur=new THREE.Vector2(0,0), eyesTarget=new THREE.Vector2(0,0), nextSaccadeAt=0;
     let jawOpen=0;
 
-    // --- LIP SEAL (sello de labios con pinch) ---
     const SEAL = {
       enabled: true,
-
-      // Labio inferior
-      lowerUpMid:  -2.8,          // centro sube más
-      lowerUpCornerScale: 2.45,  // comisuras suben menos (evita ensanche)
-      lowerRxDeg:  -25,           // rotación X hacia dentro
-      cornerPinchX: -10,        // comisuras hacia dentro (X)
-      cornerRotZDeg: -1,          // rotación Z en comisuras para plegar
-
-      // Labio superior (suave)
+      lowerUpMid:  -2.8,
+      lowerUpCornerScale: 2.45,
+      lowerRxDeg:  -25,
+      cornerPinchX: -10,
+      cornerRotZDeg: -1,
       upperDown:  -1,
       upperRxDeg: -8,
-
-      // Mandíbula
       jawRxDeg:   18
     };
 
@@ -647,18 +869,12 @@
       if(CTRL_JAW)   rot(CTRL_JAW,   new THREE.Vector3(1,0,0), -ang*0.85);
       if(DEF_JAW)    rot(DEF_JAW,    new THREE.Vector3(1,0,0), -ang*0.65);
 
-      // DIENTES: seguir a la mandíbula (sin “congelar”)
-      if(TEETH_LOWER){
+      if (TEETH_LOWER) {
         copyPose(DEF_JAW || CTRL_JAW || CTRL_MOUTH, TEETH_LOWER);
-        addMov(TEETH_LOWER, 0, -0.00*open, -0.18);
-        addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), -ang*0.10);
-      }
-      if(TEETH_UPPER){
-        restore(TEETH_UPPER); // normalmente fijo, con micro ajuste
-        addMov(TEETH_UPPER, 0, +0.015*open, 0);
+        addMov(TEETH_LOWER, 0, -0.005*open, -0.04*open);
+        addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), -ang*0.08);
       }
 
-      // labios por apertura base (animación)
       const upDy = -2.45*open, upRx = +ang*0.14;
       const dnDy = -1.85*open, dnRx = -ang*0.22;
       (LIP_UP||[]).forEach(n=>{ mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1,0,0),  upRx); });
@@ -667,29 +883,24 @@
 
     function applySeal(k){
       if(!SEAL.enabled || k<=0) return;
-
       const rxLower = THREE.MathUtils.degToRad(SEAL.lowerRxDeg) * k;
       const rxUpper = THREE.MathUtils.degToRad(SEAL.upperRxDeg) * k;
       const rxJaw   = THREE.MathUtils.degToRad(SEAL.jawRxDeg)   * k;
       const rzCorner= THREE.MathUtils.degToRad(SEAL.cornerRotZDeg) * k;
 
-      // Inferior: CENTRO
       (LIP_DOWN_CENTER||[]).forEach(n=>{
         addMov(n, 0, +SEAL.lowerUpMid * k, 0);
         addRot(n, new THREE.Vector3(1,0,0), rxLower);
       });
-
-      // Inferior: COMISURAS (menos “up”, con pinch y rotación Z)
       (LIP_DOWN_CORNERS||[]).forEach(n=>{
         addMov(n, 0, +(SEAL.lowerUpMid * SEAL.lowerUpCornerScale) * k, 0);
         const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
-        const dir = isLeft ? +1 : -1; // si invierte, cambia signo
+        const dir = isLeft ? +1 : -1;
         addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
         addRot(n, new THREE.Vector3(0,0,1), rzCorner * -dir);
         addRot(n, new THREE.Vector3(1,0,0), rxLower * 0.7);
       });
 
-      // Superior (suave)
       (LIP_UP_CENTER||[]).forEach(n=>{
         addMov(n, 0, -SEAL.upperDown * k, 0);
         addRot(n, new THREE.Vector3(1,0,0), rxUpper * 0.8);
@@ -699,7 +910,6 @@
         addRot(n, new THREE.Vector3(1,0,0), rxUpper * 0.6);
       });
 
-      // Mandíbula: micro cierre (acompaña dientes inferiores)
       if(CTRL_JAW) addRot(CTRL_JAW, new THREE.Vector3(1,0,0), +rxJaw);
       if(DEF_JAW)  addRot(DEF_JAW,  new THREE.Vector3(1,0,0), +rxJaw*0.7);
       if(TEETH_LOWER) addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), +rxJaw*0.25);
@@ -727,8 +937,7 @@
       const speed   = 2.2;
       const drive = (arr, invert=false) => {
         (arr||[]).forEach((n,i)=>{
-          if(!n) return;
-          restore(n);
+          if(!n) return; restore(n);
           const falloff = 0.85 - i * 0.18;
           const angZ = Math.sin(t * speed + i * 0.8) * baseAmp * falloff * (invert ? -1 : 1);
           const angY = Math.cos(t * speed * 0.9 + i * 0.7) * baseAmp * 0.6 * falloff;
@@ -745,26 +954,21 @@
       const idleAmp = 0.12, idleSpd = 1.6;
       const extraAmp = 0.35 * talkEnergy;
       const liftAmp  = 0.28 * talkEnergy;
-
       const driveChain=(arr, invert=false)=>{
         (arr||[]).forEach((n,i)=>{
-          if(!n) return;
-          restore(n);
+          if(!n) return; restore(n);
           const fall = 0.85 - i*0.09;
           const amp  = (idleAmp + extraAmp*(1 - i*0.15)) * fall;
           const spd  = idleSpd;
-
           const angZ = Math.sin(t*spd + i*0.6) * amp * (invert?-1:1);
           const angY = Math.cos(t*spd*0.9 + i*0.5) * amp * 0.6;
           const lift = (i<2 ? liftAmp*(invert?-0.7:0.7) : 0.0);
-
           const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), angZ);
           const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), angY);
           const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), lift);
           n.quaternion.multiply(qZ).multiply(qY).multiply(qX).normalize();
         });
       };
-
       driveChain(FK_LEFT,false);
       driveChain(FK_RIGHT,true);
     }
@@ -777,7 +981,6 @@
         eyesTarget.set((Math.random()*2-1)*amp,(Math.random()*2-1)*(amp*0.6));
       }
       eyesCur.lerp(eyesTarget,0.15);
-
       const qy = (x)=> new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), x);
       const qx = (y)=> new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), y);
       if(OJO_L){ restore(OJO_L); OJO_L.quaternion.multiply(qy(eyesCur.x)).multiply(qx(eyesCur.y)).normalize(); }
@@ -791,11 +994,13 @@
 
       if(ROOT){
         restore(ROOT);
-        const sway=Math.sin(t*0.9)*0.03;
-        const twist=Math.sin(t*0.5)*0.015;
-        const qZ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),sway);
-        const qY=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),twist);
-        ROOT.quaternion.multiply(qZ).multiply(qY).normalize();
+        if (ENABLE_IDLE_SWAY){
+          const sway=Math.sin(t*0.9)*0.03;
+          const twist=Math.sin(t*0.5)*0.015;
+          const qZ=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),sway);
+          const qY=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),twist);
+          ROOT.quaternion.multiply(qZ).multiply(qY).normalize();
+        }
       }
     }
 
@@ -812,45 +1017,46 @@
       let targetOpen = 0;
       if (talkingNow) {
         const lvl = Math.max(0, Lraw - OUT_GATE);
-        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1; // normalización mic
+        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
         const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
         targetOpen = Math.min(boosted, 1.0);
         if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
       }
-
       const k = (targetOpen > jawOpen) ? ATTACK : (talkingNow ? RELEASE : RELEASE_SILENT);
       jawOpen += (targetOpen - jawOpen) * k;
 
-      const mixerWeight  = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
-      const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
+      const clipAvailable = !!actionTalk;
+      const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
 
-      if (actionMouth) {
-        const cur = actionMouth.getEffectiveWeight();
-        actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
+      if (useClip) {
+        if (actionTalk){
+          const tgtW = talkingNow ? 1.0 : 0.0;
+          const cur = actionTalk.getEffectiveWeight();
+          actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
+          actionTalk.timeScale = THREE.MathUtils.lerp(0.8, 1.6, clamp01(jawOpen));
+        }
+        if (actionMouth) actionMouth.setEffectiveWeight(0.0);
+      } else {
+        const mixerWeight  = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
+        const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
+
+        if (actionMouth) {
+          const cur = actionMouth.getEffectiveWeight();
+          actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
+        }
+        if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
+
+        if (jawOpen >= 0.02) { applyMouth(clamp01(jawOpen * manualWeight)); }
+        else if (!talkingNow && mixerWeight === 0) { jawOpen = 0; resetMouthPose(); }
+
+        const smoothstep = (a,b,x)=> { const tt = Math.min(1, Math.max(0, (x-a)/(b-a))); return tt*tt*(3-2*tt); };
+        const sealK = 1.0 - smoothstep(1.08, 0.18, jawOpen);
+        applySeal(Math.min(1, Math.max(0, sealK)));
       }
 
-      if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
-
-      if (jawOpen >= 0.02) {
-        applyMouth(clamp01(jawOpen * manualWeight));
-      } else if (!talkingNow && mixerWeight === 0) {
-        jawOpen = 0;
-        resetMouthPose();
-      }
-
-      // sello de labios: más fuerte cuanto más cerrada la boca
-      const smoothstep = (a,b,x)=> {
-        const tt = Math.min(1, Math.max(0, (x-a)/(b-a)));
-        return tt*tt*(3-2*tt);
-      };
-      const sealK = 1.0 - smoothstep(1.08, 0.18, jawOpen);
-      applySeal(Math.min(1, Math.max(0, sealK)));
-
-      applyTongue(t, clamp01(jawOpen));
-
+      if (!useClip) applyTongue(t, clamp01(jawOpen));
       if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
       else { (ARM_L||[]).forEach(n=> restore(n)); (ARM_R||[]).forEach(n=> restore(n)); }
-
       applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
       applyEyesIdle();
       applyHeadAndBodyIdle(t);
