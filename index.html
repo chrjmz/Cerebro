@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>KRANG — Lipsync + caja + puerta ajustable</title>
+  <title>KRANG — Lipsync + caja con textura + puerta + dientes con textura</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
     :root { color-scheme: dark; }
@@ -19,7 +19,8 @@
     button[disabled] { opacity:.5; cursor:not-allowed; }
     #status { margin-left:auto; opacity:.9; font-size:12px; }
 
-    #stage { position: fixed; inset:0; display:block; touch-action:none; background:transparent; width:100vw; height:100dvh; }
+    /* El canvas lo controlamos vía JS (tamaño/pos), no tocamos aquí */
+    #stage { position: fixed; inset:0; display:block; touch-action:none; background:transparent; }
 
     #loader { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       background:radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11,15,26,0.9) 40%, #0b0f1a 70%);
@@ -36,13 +37,6 @@
     .dot.on { background:#5aff7a; }
 
     @media (max-width: 640px) { header { left: 8px; right: 8px; top:8px; justify-content:space-between } }
-
-    body{
-      /* background-image: url("./img/fondo.png"); */
-      background-size: 100% 100%;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
     canvas { pointer-events: none; }
   </style>
 
@@ -101,28 +95,36 @@
     const WP_BASE  = 'https://test-ai.garabatoweb.com';
     const GLB_URL  = './333.glb';
 
-    // === CAJA (envolvente) ===
+    // === TEXTURAS ===
+    // Caja (caja.glb)
     const BOX_URL = './caja.glb';
-    const BOX_PAD = 0.55;                // 6% más grande que el avatar
-    const BOX_OFFSET_MODE = 'ratio';      // 'ratio' (% del tamaño del avatar) | 'world' (unidades)
-    const BOX_OFFSET = { x: 0.00, y: 0.34, z: 0.00 }; // subir/bajar caja (si ratio: 10% de la altura)
+    const BOX_TEXTURE_URL    = './T_Side_Box_BaseColor.png'; // ← pon tu ruta
+    const BOX_TEXTURE_REPEAT = { x: 1, y: 1 };                   // tiling UV
+    const BOX_USE_TRANSPARENCY = false;                          // true si quieres semi-transparente
     const BOX_OPACITY = 1.0;
-    const BOX_WIREFRAME = true;
+
+    // Dientes
+    const TEETH_TEXTURE_URL  = './T_Theets_BaseColor.png'; // ← pon tu ruta
+
+    // Escala por eje (x,y,z) de la caja (respecto al avatar)
+    const BOX_SCALE = { x: 0.51, y: 0.27, z: 1.00 };
+    const BOX_OFFSET_MODE = 'ratio'; // 'ratio' (% del tamaño del avatar) | 'world' (unidades)
+    const BOX_OFFSET = { x: 0.00, y: 0.36, z: 0.00 }; // sube/baja la caja en la escena
+    const BOX_WIREFRAME = false; // usamos textura, quitamos wireframe
     const BOX_ROT_INIT = { x:0, y:0, z:0, degrees:false };
 
     // === PUERTA: CONFIG ===
-    const DOOR_HINTS = ['Puerta', 'PUERTA', 'Door', 'DOOR']; // nombres posibles del nodo de puerta en caja.glb
-    const DOOR_ALIGN = 'none';           // 'center' | 'bottom' | 'none'
+    const DOOR_HINTS = ['Puerta', 'PUERTA', 'Door', 'DOOR'];
+    const DOOR_ALIGN = 'none';             // 'center' | 'bottom' | 'none'
     const DOOR_OFFSET_MODE = 'ratio';      // 'ratio' (% del tamaño final de la caja) | 'world'
-    const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 }; // +8% arriba después de alinear
-    // === FIN PUERTA: CONFIG ===
+    const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 }; // offset adicional tras alinear
 
     const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
 
     const TALK_SOURCE = 'auto';            // 'auto' usa clip si hay; si no, lipsync por audio
     const TALK_NAME_HINTS = ['talk','habla','speak','lip','mouth','viseme','phoneme'];
 
-    const ENABLE_IDLE_SWAY = false;        // sin “tambaleo” lateral
+    const ENABLE_IDLE_SWAY = false;        // sin tambaleo lateral
 
     // Lipsync manual/mixer cuando no hay clip
     const USE_MIXER_MOUTH = true;
@@ -134,7 +136,19 @@
     const ALWAYS_CENTER_INIT = true;
     const VIEW= { faceFront:true, targetYOffsetRatio:0.36, fitPadding:0.65, extraBack:0.34, targetXOffsetRatio: 0.10 };
     const FOV = 40;
-    const FIGURE_TILT_DEG = { x: -20, y: 0, z: 0 };
+    const FIGURE_TILT_DEG = { x: -12, y: 0, z: 0 };
+
+    // --- LENGUA: límites seguros (anti “salirse” por debajo) ---
+    const TONGUE_CFG = {
+      MIN_OPEN: 0.28,      // no mover lengua hasta que la boca se abra >= 28%
+      CURL_DEG: 14,        // rizo base
+      WAG_DEG: 4,          // meneo lateral
+      WAG_SPD: 2.6,        // velocidad del meneo
+      ALLOW_FORWARD: true, // si false, nunca avanza hacia adelante
+      MAX_FORWARD: 0.006,  // avance máx. Z por hueso
+      UP_OFFSET: 0.010,    // elevación extra por hueso
+      SAFETY_CLEARANCE: 0.003 // holgura sobre el “piso” (dientes bajos)
+    };
 
     // ---------- ESCENA ----------
     const canvas   = document.getElementById('stage');
@@ -159,6 +173,31 @@
     const pivot = new THREE.Group();
     scene.add(pivot);
 
+    // Forzamos 4:3 con letterbox/pillarbox (ajusta canvas CSS y renderer size)
+    function fitCanvas43(){
+      const W = window.innerWidth, H = window.innerHeight;
+      const targetAR = 4/3;
+      let wEff, hEff;
+      if (W/H > targetAR){ // ventana muy ancha: barras laterales
+        hEff = H;
+        wEff = Math.round(hEff * targetAR);
+      } else {             // ventana muy alta: barras arriba/abajo
+        wEff = W;
+        hEff = Math.round(wEff / targetAR);
+      }
+      renderer.setSize(wEff, hEff, false);
+      // centrar canvas: anulamos inset y posicionamos manualmente
+      canvas.style.left = ((W - wEff) >> 1) + 'px';
+      canvas.style.top  = ((H - hEff) >> 1) + 'px';
+      canvas.style.right = 'auto';
+      canvas.style.bottom = 'auto';
+      canvas.style.width  = wEff + 'px';
+      canvas.style.height = hEff + 'px';
+      camera.aspect = wEff / hEff;
+      camera.fov = /Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV;
+      camera.updateProjectionMatrix();
+    }
+
     canvas.addEventListener('wheel', e => e.preventDefault(), { passive:false });
     ['gesturestart','gesturechange','gestureend'].forEach(ev => window.addEventListener(ev, e=>e.preventDefault(), { passive:false }));
 
@@ -168,18 +207,17 @@
     let containerBox = null;
     let containerBoxPivot = null;
 
-    // === viewport
-    function getViewportSize(){ const vv = window.visualViewport; return vv ? { w: Math.round(vv.width), h: Math.round(vv.height) } : { w: innerWidth, h: innerHeight }; }
+    // Textures
+    const texLoader = new THREE.TextureLoader();
+    let boxTex = null;
+    let teethTex = null;
+
     function onResize(){
-      const { w, h } = getViewportSize();
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.fov = /Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV;
-      camera.updateProjectionMatrix();
+      fitCanvas43(); // ← mantiene 4:3
       if (avatar) frameToView(avatar, VIEW);
     }
     addEventListener('resize', onResize, { passive:true });
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize, { passive:true });
+    addEventListener('orientationchange', onResize, { passive:true });
 
     // ---------- HELPERS ----------
     const clamp01 = (x)=> Math.min(1, Math.max(0, x));
@@ -295,6 +333,20 @@
 
     let mixer=null, clock=null, actionBody=null, actionMouth=null, actionTalk=null;
 
+    // Pre-carga de texturas (opcional, también se cargan on-demand)
+    if (BOX_TEXTURE_URL){
+      boxTex = texLoader.load(BOX_TEXTURE_URL);
+      boxTex.colorSpace = THREE.SRGBColorSpace;
+      boxTex.wrapS = boxTex.wrapT = THREE.RepeatWrapping;
+      boxTex.repeat.set(BOX_TEXTURE_REPEAT.x, BOX_TEXTURE_REPEAT.y);
+      boxTex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    }
+    if (TEETH_TEXTURE_URL){
+      teethTex = texLoader.load(TEETH_TEXTURE_URL);
+      teethTex.colorSpace = THREE.SRGBColorSpace;
+      teethTex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    }
+
     console.log('[GLB] Cargando:', GLB_URL);
     loader.load(GLB_URL, (gltf)=>{
       avatar = gltf.scene;
@@ -385,6 +437,11 @@
       }
       camera.position.y -= 0.05;
       controls.update();
+
+      // Aplica textura a dientes si hay
+      if (teethTex){
+        applyTeethTexture(avatar, teethTex);
+      }
 
       // === CAJA: crear envolvente (intenta caja.glb, si no fallback) ===
       addContainerBoxFor(avatar).catch(()=>{});
@@ -501,8 +558,9 @@
       scene.add(rightWall);
     }
 
-    // === CAJA: Rotación programática (si quieres girarla por código) ===
-    function setBoxRotation({x=0,y=0,z=0,degrees=true}={}){
+    // === CAJA: Rotación programática ===
+    function setBoxRotation({x=0,y=0,z=0,degrees=true}={})
+    {
       if(!containerBoxPivot) return;
       if(degrees){
         containerBoxPivot.rotation.set(
@@ -515,14 +573,21 @@
       }
     }
 
-    // === CAJA: Creación + offset aplicado + ajuste de puerta ===
+    // === CAJA: Creación + offset aplicado + ajuste de puerta + textura ===
     async function addContainerBoxFor(targetObj){
       const b = computeRobustBounds(targetObj);
       if (!b) { console.warn('[box] No bounds, fallback'); return addFallbackBox(targetObj); }
-      const size = b.box.getSize(new THREE.Vector3());
+      const size = b.box.getSize(new THREE.Vector3()); // tamaño del avatar
       const center = b.box.getCenter(new THREE.Vector3());
-      const desired = new THREE.Vector3(size.x*BOX_PAD, size.y*BOX_PAD, size.z*BOX_PAD);
 
+      // Tamaño deseado de la caja por eje (aplica BOX_SCALE)
+      const desired = new THREE.Vector3(
+        size.x * (BOX_SCALE?.x ?? 1.00),
+        size.y * (BOX_SCALE?.y ?? 1.00),
+        size.z * (BOX_SCALE?.z ?? 1.00)
+      );
+
+      // pivot de la caja y offset de posición
       const pivotBox = new THREE.Group();
       pivotBox.position.copy(center);
       if (BOX_OFFSET_MODE === 'ratio') {
@@ -549,27 +614,46 @@
             const os = bb.box.getSize(new THREE.Vector3());
             const oc = bb.box.getCenter(new THREE.Vector3());
 
-            // Recentrar y escalar
+            // Recentrar y escalar la caja importada
             boxRoot.position.sub(oc);
             const sx = desired.x / (os.x || 1);
             const sy = desired.y / (os.y || 1);
             const sz = desired.z / (os.z || 1);
             boxRoot.scale.set(sx, sy, sz);
 
-            // Materiales
+            // Materiales de la caja + TEXTURA
             boxRoot.traverse(o=>{
               if (o.isMesh || o.isSkinnedMesh){
-                const mats = Array.isArray(o.material) ? o.material : [o.material];
-                for (const m of mats){
-                  if (!m) continue;
-                  m.transparent = true;
-                  m.opacity = 0.15;
-                  if ('roughness' in m) m.roughness = 0.9;
-                  if ('metalness' in m) m.metalness = 0.0;
-                  if ('side' in m) m.side = THREE.DoubleSide;
-                  m.depthWrite = false;
-                  m.needsUpdate = true;
+                let m = o.material;
+                const mats = Array.isArray(m) ? m : [m];
+                for (let i=0;i<mats.length;i++){
+                  const mm = mats[i];
+                  if (!mm) continue;
+
+                  // Si tenemos textura, usamos MeshStandardMaterial con map
+                  if (boxTex){
+                    const newMat = new THREE.MeshStandardMaterial({
+                      map: boxTex,
+                      color: 0xffffff,
+                      roughness: 0.7,
+                      metalness: 0.0,
+                      side: THREE.DoubleSide,
+                      transparent: BOX_USE_TRANSPARENCY,
+                      opacity: BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0
+                    });
+                    mats[i] = newMat;
+                  } else {
+                    // Sin textura: deja material pero lo adecenta
+                    mm.transparent = BOX_USE_TRANSPARENCY;
+                    mm.opacity = BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0;
+                    if ('roughness' in mm) mm.roughness = 0.9;
+                    if ('metalness' in mm) mm.metalness = 0.0;
+                    if ('side' in mm) mm.side = THREE.DoubleSide;
+                    mm.depthWrite = !BOX_USE_TRANSPARENCY;
+                    mm.needsUpdate = true;
+                  }
                 }
+                o.material = Array.isArray(m) ? mats : mats[0];
               }
             });
 
@@ -597,16 +681,16 @@
                     } else if (DOOR_ALIGN === 'bottom') {
                       const worldMin = dB.box.min.clone();
                       const localMin = getLocalFromWorldPoint(door, worldMin);
-                      const targetBottom = -boxHalfY + (0.02 * boxSize.y); // 2% por encima del piso
+                      const targetBottom = -boxHalfY + (0.02 * boxSize.y);
                       const deltaY = targetBottom - localMin.y;
                       door.position.y += deltaY;
                     }
                   }
 
-                  // Offset adicional de la puerta
+                  // Offset adicional
                   if (DOOR_OFFSET_MODE === 'ratio') {
                     door.position.x += DOOR_OFFSET.x * boxSize.x;
-                    door.position.y += DOOR_OFFSET.y * boxSize.y; // << sube/baja aquí
+                    door.position.y += DOOR_OFFSET.y * boxSize.y;
                     door.position.z += DOOR_OFFSET.z * boxSize.z;
                   } else {
                     door.position.x += DOOR_OFFSET.x;
@@ -635,16 +719,21 @@
       const b = computeRobustBounds(targetObj);
       if (!b) return;
 
-      const size = desired || b.box.getSize(new THREE.Vector3()).multiplyScalar(BOX_PAD);
+      const base = b.box.getSize(new THREE.Vector3());
+      const size = desired || new THREE.Vector3(
+        base.x * (BOX_SCALE?.x ?? 1.00),
+        base.y * (BOX_SCALE?.y ?? 1.00),
+        base.z * (BOX_SCALE?.z ?? 1.00)
+      );
       const c = center || b.box.getCenter(new THREE.Vector3());
 
       const pv = pivotBox || new THREE.Group();
       if (!pivotBox){
         pv.position.copy(c);
         if (BOX_OFFSET_MODE === 'ratio') {
-          pv.position.x += BOX_OFFSET.x * size.x;
-          pv.position.y += BOX_OFFSET.y * size.y;
-          pv.position.z += BOX_OFFSET.z * size.z;
+          pv.position.x += BOX_OFFSET.x * base.x;
+          pv.position.y += BOX_OFFSET.y * base.y;
+          pv.position.z += BOX_OFFSET.z * base.z;
         } else {
           pv.position.x += BOX_OFFSET.x;
           pv.position.y += BOX_OFFSET.y;
@@ -655,13 +744,18 @@
       }
 
       const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x66aaff,
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xaaaaaa,
         wireframe: BOX_WIREFRAME,
-        transparent: true,
-        opacity: BOX_OPACITY,
-        depthWrite: false
+        map: boxTex || null,
+        roughness: 0.7,
+        metalness: 0.0,
+        side: THREE.DoubleSide,
+        transparent: BOX_USE_TRANSPARENCY,
+        opacity: BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0,
+        depthWrite: !BOX_USE_TRANSPARENCY
       });
+      if (boxTex){ boxTex.repeat.set(BOX_TEXTURE_REPEAT.x, BOX_TEXTURE_REPEAT.y); }
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(0,0,0);
       mesh.renderOrder = -10;
@@ -839,6 +933,41 @@
       setUIConnected(false);
     };
 
+    // ---------- MATERIALES/TEETH ----------
+    function applyTeethTexture(root, texture){
+      const rxTeeth = /(teeth|dientes|tooth)/i;
+      root.traverse(o=>{
+        if (o.isMesh || o.isSkinnedMesh){
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          const nameHint = (o.name||'') + '|' + (mats.map(m=>m?.name||'').join('|'));
+          if (rxTeeth.test(nameHint)){
+            for (let i=0;i<mats.length;i++){
+              const m = mats[i];
+              if (!m || m.isMeshStandardMaterial){
+                const mm = m || new THREE.MeshStandardMaterial();
+                mm.map = texture;
+                mm.color = new THREE.Color(0xffffff);
+                mm.roughness = 0.35;
+                mm.metalness = 0.0;
+                mm.envMapIntensity = 0.5;
+                mm.needsUpdate = true;
+                mats[i] = mm;
+              } else {
+                // Reemplaza por Standard si fuera otro tipo
+                mats[i] = new THREE.MeshStandardMaterial({
+                  map: texture,
+                  color: 0xffffff,
+                  roughness: 0.35,
+                  metalness: 0.0
+                });
+              }
+            }
+            o.material = Array.isArray(o.material) ? mats : mats[0];
+          }
+        }
+      });
+    }
+
     // ---------- ANIMACIÓN ----------
     function applyMixerAdditives(open){
       if (!open) return;
@@ -915,21 +1044,68 @@
       if(TEETH_LOWER) addRot(TEETH_LOWER, new THREE.Vector3(1,0,0), +rxJaw*0.25);
     }
 
+    // --- util: plano “piso” de la boca (dientes inferiores / mandíbula)
+    function getMouthFloorY(){
+      let y = null;
+      try{
+        const bTeeth = TEETH_LOWER ? computeRobustBounds(TEETH_LOWER) : null;
+        if (bTeeth) y = (y==null) ? bTeeth.box.min.y : Math.min(y, bTeeth.box.min.y);
+        const bJaw = DEF_JAW ? computeRobustBounds(DEF_JAW) : null;
+        if (bJaw)  y = (y==null) ? bJaw.box.min.y : Math.min(y, bJaw.box.min.y);
+      }catch{}
+      return (y==null) ? 0 : y;
+    }
+
+    // --- LENGUA con límites seguros (sin idle; sólo se mueve con apertura real)
     function applyTongue(t, open){
-      if(!TONGUE || TONGUE.length===0 || open<=0) return;
-      const baseCurl = THREE.MathUtils.degToRad(18) * open;
-      const wagAmp   = THREE.MathUtils.degToRad(6)  * open;
-      const wagSpd   = 3.2;
+      if(!TONGUE || TONGUE.length===0) return;
+
+      // No mover si la boca está poco abierta
+      if (open < TONGUE_CFG.MIN_OPEN) { TONGUE.forEach(restore); return; }
+
+      // Escalado suave a partir de MIN_OPEN
+      const k = Math.min(1, Math.max(0, (open - TONGUE_CFG.MIN_OPEN) / (1 - TONGUE_CFG.MIN_OPEN)));
+
+      const baseCurl = THREE.MathUtils.degToRad(TONGUE_CFG.CURL_DEG) * k;
+      const wagAmp   = THREE.MathUtils.degToRad(TONGUE_CFG.WAG_DEG)  * k;
+      const wagSpd   = TONGUE_CFG.WAG_SPD;
+
+      // Pose provisional
       TONGUE.forEach((n,i)=>{
         restore(n);
         const fall = 1 - i*0.18;
+
+        // Rizo + meneo
         const curl = baseCurl * fall;
         const wag  = Math.sin(t*wagSpd + i*0.7) * wagAmp * fall;
+
         const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), -curl);
-        const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), wag);
+        const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),  wag);
         n.quaternion.multiply(qx).multiply(qy).normalize();
-        addMov(n, 0, 0.02*open*fall, 0.01*open*fall);
+
+        // Desplazamientos (suaves y limitados)
+        const up = (TONGUE_CFG.UP_OFFSET * k * fall);
+        const fwd = (TONGUE_CFG.ALLOW_FORWARD ? Math.min(TONGUE_CFG.MAX_FORWARD, 0.006*k*fall) : 0);
+        addMov(n, 0, up, fwd);   // ⚠️ si tu rig “sale” en -Z, cambia a addMov(n,0,up,-fwd)
       });
+
+      // Guardarraíl anti “salida por debajo”
+      const tip = TONGUE[TONGUE.length-1];
+      const tipPos = new THREE.Vector3(); tip.getWorldPosition(tipPos);
+      const floorY = getMouthFloorY() + TONGUE_CFG.SAFETY_CLEARANCE;
+
+      if (tipPos.y < floorY){
+        const pushUp = floorY - tipPos.y;
+        const relax  = Math.min(1, pushUp * 60);
+
+        const L = TONGUE.length;
+        TONGUE.forEach((n,i)=>{
+          const w = (1 - i/(L-1)) * 0.65; // más peso en la base
+          addMov(n, 0, pushUp * w, 0);
+          const qxRelax = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), +baseCurl * 0.5 * relax);
+          n.quaternion.multiply(qxRelax).normalize();
+        });
+      }
     }
 
     function applyArmsWhileTalking(t, energy){
@@ -977,7 +1153,7 @@
       const now=performance.now();
       if(now>nextSaccadeAt){
         nextSaccadeAt = now + 600 + Math.random()*900;
-        const amp = 0.18;
+        const amp = 0.18; // puedes subirlo a 0.22 si quieres más movimiento
         eyesTarget.set((Math.random()*2-1)*amp,(Math.random()*2-1)*(amp*0.6));
       }
       eyesCur.lerp(eyesTarget,0.15);
@@ -1054,9 +1230,12 @@
         applySeal(Math.min(1, Math.max(0, sealK)));
       }
 
+      // Lengua sólo si no usamos clip de “talk” (o podrías sumarla también a clip si quisieras)
       if (!useClip) applyTongue(t, clamp01(jawOpen));
+
       if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
       else { (ARM_L||[]).forEach(n=> restore(n)); (ARM_R||[]).forEach(n=> restore(n)); }
+
       applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
       applyEyesIdle();
       applyHeadAndBodyIdle(t);
@@ -1073,6 +1252,9 @@
 
     async function listMicsInit(){ try{ await navigator.mediaDevices.getUserMedia({audio:true}); }catch{} }
     listMicsInit().finally(listMics);
+
+    // Primera llamada para encajar 4:3
+    fitCanvas43();
   </script>
 </body>
 </html>
