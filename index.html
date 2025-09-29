@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="es">
 
 <head>
@@ -11,160 +12,163 @@
       color-scheme: dark;
     }
 
-    html,
-    body {
-      margin: 0;
-      height: 100dvh;
-      background: #000;
-      color: #eaeef5;
-      font-family: system-ui, Segoe UI, Roboto, sans-serif;
-      overflow: hidden;
-    }
+html,
+body {
+  margin: 0;
+  height: 100dvh;
+  background: #000;
+  color: #eaeef5;
+  font-family: system-ui, Segoe UI, Roboto, sans-serif;
+  overflow: hidden;
+}
 
-    header {
-      position: fixed;
-      top: 10px;
-      left: 20px;
-      padding: 10px 14px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      background: color-mix(in srgb, #0b0f1a 60%, transparent);
-      border: 1px solid #1f2840;
-      border-radius: 12px;
-      box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
-      backdrop-filter: blur(6px);
-      z-index: 20;
-    }
+header {
+  position: fixed;
+  top: 10px;
+  left: 20px;
+  padding: 10px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: color-mix(in srgb, #0b0f1a 60%, transparent);
+  border: 1px solid #1f2840;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
 
-    button {
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 0;
-      background: #2a60ff;
-      color: #fff;
-      cursor: pointer;
-      font-size: 12px;
-    }
+button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: #2a60ff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
 
-    button.secondary {
-      background: #27314e;
-    }
+button.secondary {
+  background: #27314e;
+}
 
-    button[disabled] {
-      opacity: .5;
-      cursor: not-allowed;
-    }
+button[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+}
 
-    #status {
-      margin-left: auto;
-      opacity: .9;
-      font-size: 12px;
-    }
+#status {
+  margin-left: auto;
+  opacity: .9;
+  font-size: 12px;
+}
 
-    /* El canvas lo controlamos vía JS (tamaño/pos), no tocamos aquí */
-    #stage {
-      position: fixed;
-      inset: 0;
-      display: block;
-      touch-action: none;
-      background: transparent;
-    }
+/* El canvas lo controlamos vía JS (tamaño/pos), no tocamos aquí */
+#stage {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+  background: transparent;
+}
 
-    #loader {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11, 15, 26, 0.9) 40%, #0b0f1a 70%);
-      z-index: 10;
-      flex-direction: column;
-      gap: 12px;
-    }
+#loader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11, 15, 26, 0.9) 40%, #0b0f1a 70%);
+  z-index: 10;
+  flex-direction: column;
+  gap: 12px;
+}
 
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 4px solid #2a60ff30;
-      border-top-color: #2a60ff;
-      animation: spin 1s linear infinite;
-    }
+.spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 4px solid #2a60ff30;
+  border-top-color: #2a60ff;
+  animation: spin 1s linear infinite;
+}
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-    .loader-text {
-      font-size: 14px;
-      color: #cfe0ff;
-      opacity: .9
-    }
+.loader-text {
+  font-size: 14px;
+  color: #cfe0ff;
+  opacity: .9
+}
 
-    .hud {
-      display: none;
-      position: fixed;
-      left: 10px;
-      bottom: 10px;
-      background: #0b0f1acc;
-      border: 1px solid #1f2840;
-      border-radius: 8px;
-      padding: 8px 10px;
-      font: 12px/1.2 system-ui;
-      z-index: 30;
-    }
+.hud {
+  display: none;
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  background: #0b0f1acc;
+  border: 1px solid #1f2840;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: 12px/1.2 system-ui;
+  z-index: 30;
+}
 
-    .bar {
-      width: 160px;
-      height: 6px;
-      background: #18203a;
-      border-radius: 4px;
-      overflow: hidden;
-    }
+.bar {
+  width: 160px;
+  height: 6px;
+  background: #18203a;
+  border-radius: 4px;
+  overflow: hidden;
+}
 
-    .fill {
-      height: 100%;
-      width: 0%;
-      background: #2a60ff;
-    }
+.fill {
+  height: 100%;
+  width: 0%;
+  background: #2a60ff;
+}
 
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 6px;
-    }
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ff5566;
-    }
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5566;
+}
 
-    .dot.on {
-      background: #5aff7a;
-    }
+.dot.on {
+  background: #5aff7a;
+}
 
-    @media (max-width: 640px) {
-      header {
-        left: 8px;
-        right: 8px;
-        top: 8px;
-        justify-content: space-between
-      }
-    }
+@media (max-width: 640px) {
+  header {
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    justify-content: space-between
+  }
+}
 
-    canvas {
-      pointer-events: none;
-    }
+canvas {
+  pointer-events: none;
+}
+
+
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+
   <script type="importmap">
   {
     "imports": {
@@ -176,6 +180,7 @@
     }
   }
   </script>
+
 </head>
 
 <body>
@@ -190,7 +195,7 @@
     <button id="btnTestTalk" class="secondary">Test lipsync</button>
   </header>
 
-  <canvas id="stage"></canvas>
+<canvas id="stage"></canvas>
 
   <div id="loader" aria-live="polite">
     <div class="spinner" aria-hidden="true"></div>
@@ -222,7 +227,7 @@
     // ---------- CONFIG ----------
     const AGENT_ID = 'agent_5501k5ckwydxem1s0sdzjj17ej9m';
     const WP_BASE = 'https://test-ai.garabatoweb.com';
-    const GLB_URL = './333.glb';
+    const GLB_URL = './exp3test.glb';
 
     // === TEXTURAS ===
     // Caja (caja.glb)
@@ -269,15 +274,19 @@
 
     // --- LENGUA: límites seguros (anti “salirse” por debajo) ---
     const TONGUE_CFG = {
-      MIN_OPEN: 0.28,
-      CURL_DEG: 14,
-      WAG_DEG: 4,
-      WAG_SPD: 2.6,
-      ALLOW_FORWARD: true,
-      MAX_FORWARD: 0.006,
-      UP_OFFSET: 0.010,
-      SAFETY_CLEARANCE: 0.003
+      MIN_OPEN: 0.28,      // no mover lengua hasta que la boca se abra >= 28%
+      CURL_DEG: 14,        // rizo base
+      WAG_DEG: 4,          // meneo lateral
+      WAG_SPD: 2.6,        // velocidad del meneo
+      ALLOW_FORWARD: true, // si false, nunca avanza hacia adelante
+      MAX_FORWARD: 0.006,  // avance máx. Z por hueso
+      UP_OFFSET: 0.010,    // elevación extra por hueso
+      SAFETY_CLEARANCE: 0.003 // holgura sobre el “piso” (dientes bajos)
     };
+
+    // --- NUEVO: escalas solicitadas ---
+    const LIGHT_SCALE = 0.75;        // -25% intensidad de luces
+    const CHEEK_SILENT_DAMP = 0.80;  // 80% de amortiguación de cachetes en silencio
 
     // ---------- ESCENA ----------
     const canvas = document.getElementById('stage');
@@ -365,40 +374,6 @@
       return obj.parent ? obj.parent.worldToLocal(worldPt.clone()) : worldPt.clone();
     }
 
-    // ---------- NUEVO: centrado de dientes bajo el promedio de labios inferiores ----------
-    function avgWorldX(nodes) {
-      let sum = 0, n = 0, tmp = new THREE.Vector3();
-      (nodes || []).forEach(o => {
-        if (!o) return;
-        o.getWorldPosition(tmp);
-        sum += tmp.x; n++;
-      });
-      return n ? (sum / n) : null;
-    }
-
-    /**
-     * Atrae suavemente los dientes inferiores hacia el centro X de los LIP_DOWN
-     * k = fuerza (0..1), maxShift limita cuánto puede moverse por frame
-     */
-    function alignTeethToLips(k = 0.60, maxShift = LIP_MAX_LATERAL * 0.75) {
-      if (!TEETH_LOWER || !LIP_DOWN || !LIP_DOWN.length) return;
-
-      const worldTeeth = new THREE.Vector3();
-      TEETH_LOWER.getWorldPosition(worldTeeth);
-
-      const targetLipX = avgWorldX(LIP_DOWN);
-      if (targetLipX == null) return;
-
-      // Diferencia en mundo (ejes del rig están bastante alineados ⇒ usamos dx directo)
-      const dxWorld = targetLipX - worldTeeth.x;
-
-      // Limita y aplica en local (suficiente por estar casi alineados los ejes)
-      const shift = Math.max(-maxShift, Math.min(maxShift, dxWorld * k));
-      addMov(TEETH_LOWER, shift, 0, 0);
-    }
-    // ---------- /centrado ----------
-
-
     const restQ = new Map(), restP = new Map();
     const saveRest = o => { if (!o) return; if (!restQ.has(o)) restQ.set(o, o.quaternion.clone()); if (!restP.has(o)) restP.set(o, o.position.clone()); };
     const restore = o => { if (!o) return; const q = restQ.get(o), p = restP.get(o); if (q) o.quaternion.copy(q); if (p) o.position.copy(p); };
@@ -407,6 +382,15 @@
 
     const addRot = (n, ax, r) => { if (!n || r === 0) return; const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
     const addMov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; n.position.x += dx; n.position.y += dy; n.position.z += dz; };
+
+    function dampNodesTowardRest(nodes, k = 0.8) {
+      if (!nodes) return;
+      nodes.forEach(n => {
+        const rq = restQ.get(n), rp = restP.get(n);
+        if (rq) n.quaternion.slerp(rq, k);
+        if (rp) n.position.lerp(rp, k);
+      });
+    }
 
     function resetMouthPose() {
       if (CTRL_MOUTH) restore(CTRL_MOUTH);
@@ -420,35 +404,6 @@
     }
 
     function copyPose(from, to) { if (!from || !to) return; to.position.copy(from.position); to.quaternion.copy(from.quaternion); }
-
-    // ---------- NUEVO: límite lateral dinámico para labios ----------
-    let LIP_MAX_LATERAL = 0.006; // se recalcula al cargar el avatar
-
-    function clampLipLateral(nodes) {
-      if (!nodes) return;
-      for (const n of nodes) {
-        const p0 = restP.get(n);
-        if (!p0) continue;
-        const dx = n.position.x - p0.x;
-        const dz = n.position.z - p0.z;
-        if (Math.abs(dx) > LIP_MAX_LATERAL) n.position.x = p0.x + Math.sign(dx) * LIP_MAX_LATERAL;
-        if (Math.abs(dz) > LIP_MAX_LATERAL) n.position.z = p0.z + Math.sign(dz) * LIP_MAX_LATERAL;
-      }
-    }
-
-    // ---------- NUEVO: clamp lateral para dientes ----------
-    function clampTeethLateral(node, max = LIP_MAX_LATERAL * 0.95) {
-      if (!node) return;
-      const p0 = restP.get(node);
-      if (!p0) return;
-      const dx = node.position.x - p0.x;
-      const dz = node.position.z - p0.z;
-      if (Math.abs(dx) > max) node.position.x = p0.x + Math.sign(dx) * max;
-      if (Math.abs(dz) > max) node.position.z = p0.z + Math.sign(dz) * max;
-    }
-    // ---------- /clamp dientes ----------
-
-    // ---------- /límite lateral ----------
 
     // ---------- BOUNDS ----------
     function computeRobustBounds(root) {
@@ -493,7 +448,7 @@
     }
 
     // ---------- RIG ----------
-    let ROOT = null, DEF_HEAD = null, CTRL_HEAD_UP = null;
+    let ROOT = null, DEF_HEAD = null, CTRL_HEAD_UP = null, HEAD_DOWN = null;
     let CTRL_MOUTH = null, CTRL_JAW = null, DEF_JAW = null;
     let TEETH_LOWER = null, TEETH_UPPER = null;
     let LIP_UP = [], LIP_DOWN = [];
@@ -503,6 +458,10 @@
     let FK_LEFT = [], FK_RIGHT = [];
     let ARM_L = [], ARM_R = [];
     let TONGUE = [];
+    let CHEEKS = [];     // NEW
+    let EYELIDS = [];    // NEW
+    let EYEBROWS = [];   // NEW
+    let NOSE = null;     // NEW
 
     // ---------- UI ----------
     const statusEl = document.getElementById('status');
@@ -525,7 +484,7 @@
 
     let mixer = null, clock = null, actionBody = null, actionMouth = null, actionTalk = null;
 
-    // Pre-carga de texturas (opcional, también se cargan on-demand)
+    // Pre-carga de texturas
     if (BOX_TEXTURE_URL) {
       boxTex = texLoader.load(BOX_TEXTURE_URL);
       boxTex.colorSpace = THREE.SRGBColorSpace;
@@ -570,31 +529,29 @@
         if (s) avatar.userData.baseSphere = s;
       }
 
-      // === NODOS (DEF_*) ===
-      function hasSideL(n) { return /\.L\b|_L\b|\bL\b/.test(n.name); }
-      function hasSideR(n) { return /\.R\b|_R\b|\bR\b/.test(n.name); }
-      function isCorner(n) { return hasSideL(n) || hasSideR(n) || /CORNER/i.test(n.name); }
-
+      // === NODOS (robusto) ===
       ROOT = findFirst(avatar, ['ROOT']) || findRegex(avatar, /\bKRANG_RIG\b/i)[0] || avatar;
       DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP', 'DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
-      CTRL_HEAD_UP = null;
+      HEAD_DOWN = findFirst(avatar, ['DEF_HEAD_DOWN']) || findRegex(avatar, /DEF[_-]?HEAD[_-]?DOWN/i)[0] || null;
 
       CTRL_MOUTH = null;
       CTRL_JAW = findFirst(avatar, ['CTRL_JAW']) || null;
       DEF_JAW = findFirst(avatar, ['DEF_JAW']) || findRegex(avatar, /DEF[_-]?JAW/i)[0];
 
       TEETH_LOWER = findFirst(avatar, ['DEF_TEETH_DOWN']) || findRegex(avatar, /(DEF_)?TEETH.*(DOWN|LOWER)/i)[0] || null;
-      TEETH_UPPER = null;
+      TEETH_UPPER = findFirst(avatar, ['DEF_TEETH_UP']) || findRegex(avatar, /(DEF_)?TEETH.*(UP|UPPER)/i)[0] || null;
 
       const lipsAnyUpper = findRegex(avatar, /\bDEF_LIP(?!_DOWN)/i);
       const lipsAnyLower = findRegex(avatar, /\bDEF_LIP_DOWN_/i);
       LIP_UP = lipsAnyUpper;
       LIP_DOWN = lipsAnyLower;
 
+      const isCorner = n => /\.L\b|_L\b|\bL\b|\.R\b|_R\b|\bR\b|CORNER/i.test(n.name);
+
       LIP_UP_CORNERS = (LIP_UP || []).filter(isCorner);
-      LIP_UP_CENTER = (LIP_UP || []).filter(n => !isCorner(n));
+      LIP_UP_CENTER  = (LIP_UP || []).filter(n => !isCorner(n));
       LIP_DOWN_CORNERS = (LIP_DOWN || []).filter(isCorner);
-      LIP_DOWN_CENTER = (LIP_DOWN || []).filter(n => !isCorner(n));
+      LIP_DOWN_CENTER  = (LIP_DOWN || []).filter(n => !isCorner(n));
 
       OJO_L = findFirst(avatar, ['DEF_EYE.L']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)L\b/i)[0];
       OJO_R = findFirst(avatar, ['DEF_EYE.R']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)R\b/i)[0];
@@ -611,8 +568,20 @@
       FK_LEFT = tentL;
       FK_RIGHT = tentR;
 
-      ;[ROOT, DEF_HEAD, CTRL_HEAD_UP, CTRL_MOUTH, CTRL_JAW, DEF_JAW, TEETH_LOWER, TEETH_UPPER, OJO_L, OJO_R,
-        ...LIP_UP, ...LIP_DOWN, ...FK_LEFT, ...FK_RIGHT, ...ARM_L, ...ARM_R, ...TONGUE].forEach(saveRest);
+      // NUEVOS grupos
+      CHEEKS   = findRegex(avatar, /DEF[_-]?CHEEK[_-]?(UP|DOWN)/i);
+      EYELIDS  = findRegex(avatar, /DEF[_-]?EYELID/i);
+      EYEBROWS = findRegex(avatar, /DEF[_-]?EYEBROW/i);
+      NOSE     = findFirst(avatar, ['DEF_NOSE']) || findRegex(avatar, /DEF[_-]?NOSE/i)[0] || null;
+
+      ;[ROOT, DEF_HEAD, CTRL_HEAD_UP, HEAD_DOWN,
+        CTRL_MOUTH, CTRL_JAW, DEF_JAW, TEETH_LOWER, TEETH_UPPER,
+        OJO_L, OJO_R, NOSE,
+        ...LIP_UP, ...LIP_DOWN,
+        ...FK_LEFT, ...FK_RIGHT,
+        ...ARM_L, ...ARM_R,
+        ...TONGUE, ...CHEEKS, ...EYELIDS, ...EYEBROWS
+      ].forEach(saveRest);
 
       // Encuadre + entorno
       onResize();
@@ -622,11 +591,8 @@
 
       const tmpBox = computeRobustBounds(avatar)?.box;
       if (tmpBox) {
-        const sz = tmpBox.getSize(new THREE.Vector3());
-        // NUEVO: límite lateral proporcional al ancho (≈0.65% del ancho)
-        LIP_MAX_LATERAL = Math.max(0.0025, sz.x * 0.0065);
-
-        controls.target.y -= 0.08 * sz.y;
+        const sz = tmpBox.getSize(new THREE.Vector3()).y;
+        controls.target.y -= 0.08 * sz;
       } else {
         controls.target.y -= 0.1;
       }
@@ -700,9 +666,10 @@
 
     // ---------- ILUMINACIÓN / SOMBRAS ----------
     function addCinematicLights(target) {
-      const amb = new THREE.AmbientLight(0xffffff, 0.30); scene.add(amb);
+      const amb = new THREE.AmbientLight(0xffffff, 0.30 * LIGHT_SCALE);
+      scene.add(amb);
 
-      const key = new THREE.DirectionalLight(0xfff2e0, 1.45);
+      const key = new THREE.DirectionalLight(0xfff2e0, 1.45 * LIGHT_SCALE);
       key.position.set(-0.0, 0.8, 1);
       key.castShadow = true;
       key.shadow.mapSize.set(2048, 2048);
@@ -717,11 +684,11 @@
       key.shadow.camera.top = s; key.shadow.camera.bottom = -s;
       scene.add(key);
 
-      const fill = new THREE.DirectionalLight(0xaec8ff, 0.55);
+      const fill = new THREE.DirectionalLight(0xaec8ff, 0.55 * LIGHT_SCALE);
       fill.position.set(-1.1, 1.2, 0.8);
       scene.add(fill);
 
-      const rim = new THREE.DirectionalLight(0xfff2d0, 0.50);
+      const rim = new THREE.DirectionalLight(0xfff2d0, 0.50 * LIGHT_SCALE);
       rim.position.set(0.5, 0.9, -1.2);
       scene.add(rim);
     }
@@ -824,7 +791,6 @@
                   const mm = mats[i];
                   if (!mm) continue;
 
-                  // Si tenemos textura, usamos MeshStandardMaterial con map
                   if (boxTex) {
                     const newMat = new THREE.MeshStandardMaterial({
                       map: boxTex,
@@ -837,7 +803,6 @@
                     });
                     mats[i] = newMat;
                   } else {
-                    // Sin textura: deja material pero lo adecenta
                     mm.transparent = BOX_USE_TRANSPARENCY;
                     mm.opacity = BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0;
                     if ('roughness' in mm) mm.roughness = 0.9;
@@ -881,7 +846,6 @@
                     }
                   }
 
-                  // Offset adicional
                   if (DOOR_OFFSET_MODE === 'ratio') {
                     door.position.x += DOOR_OFFSET.x * boxSize.x;
                     door.position.y += DOOR_OFFSET.y * boxSize.y;
@@ -1147,7 +1111,6 @@
                 mm.needsUpdate = true;
                 mats[i] = mm;
               } else {
-                // Reemplaza por Standard si fuera otro tipo
                 mats[i] = new THREE.MeshStandardMaterial({
                   map: texture,
                   color: 0xffffff,
@@ -1173,19 +1136,17 @@
     let eyesCur = new THREE.Vector2(0, 0), eyesTarget = new THREE.Vector2(0, 0), nextSaccadeAt = 0;
     let jawOpen = 0;
 
-    // === AJUSTADO: menos deriva lateral en sellado
     const SEAL = {
       enabled: true,
       lowerUpMid: -2.8,
-      lowerUpCornerScale: 1.25, // un poco menos de alza en las comisuras
-      lowerRxDeg: -24,
-      cornerPinchX: 0,          // sin pinzamiento lateral
-      cornerRotZDeg: 0,         // sin roll en comisuras
+      lowerUpCornerScale: 2.45,
+      lowerRxDeg: -25,
+      cornerPinchX: -10,
+      cornerRotZDeg: -1,
       upperDown: -1,
       upperRxDeg: -8,
       jawRxDeg: 18
     };
-
 
     function applyMouth(open) {
       const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
@@ -1195,13 +1156,10 @@
       if (DEF_JAW) rot(DEF_JAW, new THREE.Vector3(1, 0, 0), -ang * 0.65);
 
       if (TEETH_LOWER) {
-        // Sigue a la mandíbula, sin introducir yaw/roll que empujan a un lado
         copyPose(DEF_JAW || CTRL_JAW || CTRL_MOUTH, TEETH_LOWER);
-        addMov(TEETH_LOWER, 0, -0.005 * open, -1.04 * open);
-        // Solo pitch en X, evita la componente Y que generaba deriva lateral
+        addMov(TEETH_LOWER, 0, -0.005 * open, -0.04 * open);
         addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), -ang * 0.08);
       }
-
 
       const upDy = -2.45 * open, upRx = +ang * 0.14;
       const dnDy = -1.85 * open, dnRx = -ang * 0.22;
@@ -1224,9 +1182,8 @@
         addMov(n, 0, +(SEAL.lowerUpMid * SEAL.lowerUpCornerScale) * k, 0);
         const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
         const dir = isLeft ? +1 : -1;
-        // Sin pinch X y sin rotación Z (evita deriva)
-        // addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
-        // addRot(n, new THREE.Vector3(0, 0, 1), rzCorner * -dir);
+        addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
+        addRot(n, new THREE.Vector3(0, 0, 1), rzCorner * -dir);
         addRot(n, new THREE.Vector3(1, 0, 0), rxLower * 0.7);
       });
 
@@ -1256,7 +1213,7 @@
       return (y == null) ? 0 : y;
     }
 
-    // --- LENGUA con límites seguros (sin idle; sólo se mueve con apertura real)
+    // --- LENGUA con límites seguros
     function applyTongue(t, open) {
       if (!TONGUE || TONGUE.length === 0) return;
 
@@ -1294,7 +1251,7 @@
 
         const L = TONGUE.length;
         TONGUE.forEach((n, i) => {
-          const w = (1 - i / (L - 1)) * 0.65; // más peso en la base
+          const w = (1 - i / (L - 1)) * 0.65;
           addMov(n, 0, pushUp * w, 0);
           const qxRelax = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), +baseCurl * 0.5 * relax);
           n.quaternion.multiply(qxRelax).normalize();
@@ -1378,8 +1335,6 @@
       requestAnimationFrame(animate);
       const t = performance.now() * 0.001;
 
-
-
       if (mixer && clock) mixer.update(clock.getDelta());
 
       const talkingNow = forceTalking || agentTalking;
@@ -1426,7 +1381,7 @@
         applySeal(Math.min(1, Math.max(0, sealK)));
       }
 
-      // Lengua (solo sin clip talk)
+      // Lengua sólo si no usamos clip “talk”
       if (!useClip) applyTongue(t, clamp01(jawOpen));
 
       if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
@@ -1436,15 +1391,10 @@
       applyEyesIdle();
       applyHeadAndBodyIdle(t);
 
-      // ===== NUEVO: limitar deriva lateral de labios después de mover/sellar =====
-      clampLipLateral(LIP_UP);
-      clampLipLateral(LIP_DOWN);
-
-      // Alinear dientes al ritmo/centro de los labios inferiores y limitar deriva
-      alignTeethToLips();          // recentra bajo LIP_DOWN
-      clampTeethLateral(TEETH_LOWER);  // mismo límite lateral que labios
-
-      // ==========================================================================
+      // --- NUEVO: amortiguar cachetes cuando NO habla (80% hacia reposo)
+      if (!talkingNow) {
+        dampNodesTowardRest(CHEEKS, CHEEK_SILENT_DAMP);
+      }
 
       openTxt.textContent = jawOpen.toFixed(2);
       lvlTxt.textContent = levelOut.toFixed(2);
@@ -1462,6 +1412,7 @@
     // Primera llamada para encajar 4:3
     fitCanvas43();
   </script>
+
 </body>
 
 </html>

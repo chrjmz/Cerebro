@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <title>KRANG — Lipsync + caja con textura + puerta + dientes con textura</title>
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100dvh;
+      background: #000;
+      color: #eaeef5;
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    header {
+      position: fixed;
+      top: 10px;
+      left: 20px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: color-mix(in srgb, #0b0f1a 60%, transparent);
+      border: 1px solid #1f2840;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+      backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+
+    button {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 0;
+      background: #2a60ff;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    button.secondary {
+      background: #27314e;
+    }
+
+    button[disabled] {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-left: auto;
+      opacity: .9;
+      font-size: 12px;
+    }
+
+    /* El canvas lo controlamos vía JS (tamaño/pos), no tocamos aquí */
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: block;
+      touch-action: none;
+      background: transparent;
+    }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11, 15, 26, 0.9) 40%, #0b0f1a 70%);
+      z-index: 10;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 4px solid #2a60ff30;
+      border-top-color: #2a60ff;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      font-size: 14px;
+      color: #cfe0ff;
+      opacity: .9
+    }
+
+    .hud {
+      display: none;
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      background: #0b0f1acc;
+      border: 1px solid #1f2840;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: 12px/1.2 system-ui;
+      z-index: 30;
+    }
+
+    .bar {
+      width: 160px;
+      height: 6px;
+      background: #18203a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: #2a60ff;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff5566;
+    }
+
+    .dot.on {
+      background: #5aff7a;
+    }
+
+    @media (max-width: 640px) {
+      header {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        justify-content: space-between
+      }
+    }
+
+    canvas {
+      pointer-events: none;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "livekit-client": "https://esm.sh/livekit-client@2",
+      "tslib": "https://esm.sh/tslib@2",
+      "@elevenlabs/client": "https://cdn.jsdelivr.net/npm/@elevenlabs/client@0.6.2/dist/lib.module.js",
+      "meshopt-decoder": "https://cdn.jsdelivr.net/npm/meshoptimizer@0.20.0/meshopt_decoder.module.js"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <header>
+    <button id="btnConnect">Connect mic</button>
+    <button id="btnDisconnect" class="secondary" style="display:none">Disconnect</button>
+    <span style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; opacity:.9;">Mic:</span>
+      <select id="micSelect" title="Select microphone"></select>
+    </span>
+    <span id="status">disconnected</span>
+    <button id="btnTestTalk" class="secondary">Test lipsync</button>
+  </header>
+
+  <canvas id="stage"></canvas>
+
+  <div id="loader" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="loader-text">Loading 3D avatar…</div>
+  </div>
+
+  <div class="hud" id="hud" aria-hidden="true" style="display: none !important;">
+    <div>levelOut: <span id="lvlTxt">0.00</span></div>
+    <div class="bar">
+      <div id="lvlBar" class="fill"></div>
+    </div>
+    <div class="row">
+      <div>talking:</div>
+      <div id="talkDot" class="dot"></div>
+      <div style="margin-left:10px">open:</div>
+      <div id="openTxt">0.00</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/DRACOLoader.js';
+    import { KTX2Loader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/KTX2Loader.js';
+    import { MeshoptDecoder } from 'meshopt-decoder';
+    import { Conversation } from '@elevenlabs/client';
+
+    // ---------- CONFIG ----------
+    const AGENT_ID = 'agent_5501k5ckwydxem1s0sdzjj17ej9m';
+    const WP_BASE = 'https://test-ai.garabatoweb.com';
+    const GLB_URL = './333.glb';
+
+    // === TEXTURAS ===
+    // Caja (caja.glb)
+    const BOX_URL = './caja.glb';
+    const BOX_TEXTURE_URL = './T_Side_Box_BaseColor.png'; // ← pon tu ruta
+    const BOX_TEXTURE_REPEAT = { x: 1, y: 1 };                   // tiling UV
+    const BOX_USE_TRANSPARENCY = false;                          // true si quieres semi-transparente
+    const BOX_OPACITY = 1.0;
+
+    // Dientes
+    const TEETH_TEXTURE_URL = './T_Theets_BaseColor.png'; // ← pon tu ruta
+
+    // Escala por eje (x,y,z) de la caja (respecto al avatar)
+    const BOX_SCALE = { x: 0.51, y: 0.27, z: 1.00 };
+    const BOX_OFFSET_MODE = 'ratio'; // 'ratio' (% del tamaño del avatar) | 'world' (unidades)
+    const BOX_OFFSET = { x: 0.00, y: 0.36, z: 0.00 }; // sube/baja la caja en la escena
+    const BOX_WIREFRAME = false; // usamos textura, quitamos wireframe
+    const BOX_ROT_INIT = { x: 0, y: 0, z: 0, degrees: false };
+
+    // === PUERTA: CONFIG ===
+    const DOOR_HINTS = ['Puerta', 'PUERTA', 'Door', 'DOOR'];
+    const DOOR_ALIGN = 'none';             // 'center' | 'bottom' | 'none'
+    const DOOR_OFFSET_MODE = 'ratio';      // 'ratio' (% del tamaño final de la caja) | 'world'
+    const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 }; // offset adicional tras alinear
+
+    const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
+
+    const TALK_SOURCE = 'auto';            // 'auto' usa clip si hay; si no, lipsync por audio
+    const TALK_NAME_HINTS = ['talk', 'habla', 'speak', 'lip', 'mouth', 'viseme', 'phoneme'];
+
+    const ENABLE_IDLE_SWAY = false;        // sin tambaleo lateral
+
+    // Lipsync manual/mixer cuando no hay clip
+    const USE_MIXER_MOUTH = true;
+    const MOUTH_MIXER_WHEN_TALK = 0.55;
+    const MOUTH_MIXER_WHEN_SILENT = 0.5;
+    const MOUTH_MANUAL_WHEN_TALK = 0.55;
+    const MOUTH_MANUAL_WHEN_SILENT = 0.5;
+
+    const ALWAYS_CENTER_INIT = true;
+    const VIEW = { faceFront: true, targetYOffsetRatio: 0.36, fitPadding: 0.65, extraBack: 0.34, targetXOffsetRatio: 0.10 };
+    const FOV = 40;
+    const FIGURE_TILT_DEG = { x: -12, y: 0, z: 0 };
+
+    // --- LENGUA: límites seguros (anti “salirse” por debajo) ---
+    const TONGUE_CFG = {
+      MIN_OPEN: 0.28,      // no mover lengua hasta que la boca se abra >= 28%
+      CURL_DEG: 14,        // rizo base
+      WAG_DEG: 4,          // meneo lateral
+      WAG_SPD: 2.6,        // velocidad del meneo
+      ALLOW_FORWARD: true, // si false, nunca avanza hacia adelante
+      MAX_FORWARD: 0.006,  // avance máx. Z por hueso
+      UP_OFFSET: 0.010,    // elevación extra por hueso
+      SAFETY_CLEARANCE: 0.003 // holgura sobre el “piso” (dientes bajos)
+    };
+
+    // ---------- ESCENA ----------
+    const canvas = document.getElementById('stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+
+    renderer.setPixelRatio(Math.min(devicePixelRatio, /Mobi|Android/i.test(navigator.userAgent) ? 1.5 : 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 2.85;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(/Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV, 1, 0.01, 1000);
+    camera.position.set(3, 1.6, 4);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.enableZoom = false;
+
+    const pivot = new THREE.Group();
+    scene.add(pivot);
+
+    // Forzamos 4:3 con letterbox/pillarbox (ajusta canvas CSS y renderer size)
+    function fitCanvas43() {
+      const W = window.innerWidth, H = window.innerHeight;
+      const targetAR = 4 / 3;
+      let wEff, hEff;
+      if (W / H > targetAR) { // ventana muy ancha: barras laterales
+        hEff = H;
+        wEff = Math.round(hEff * targetAR);
+      } else {             // ventana muy alta: barras arriba/abajo
+        wEff = W;
+        hEff = Math.round(wEff / targetAR);
+      }
+      renderer.setSize(wEff, hEff, false);
+      // centrar canvas: anulamos inset y posicionamos manualmente
+      canvas.style.left = ((W - wEff) >> 1) + 'px';
+      canvas.style.top = ((H - hEff) >> 1) + 'px';
+      canvas.style.right = 'auto';
+      canvas.style.bottom = 'auto';
+      canvas.style.width = wEff + 'px';
+      canvas.style.height = hEff + 'px';
+      camera.aspect = wEff / hEff;
+      camera.fov = /Mobi|Android/i.test(navigator.userAgent) ? 40 : FOV;
+      camera.updateProjectionMatrix();
+    }
+
+    canvas.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => window.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+
+    let avatar = null;
+
+    // CAJA refs
+    let containerBox = null;
+    let containerBoxPivot = null;
+
+    // Textures
+    const texLoader = new THREE.TextureLoader();
+    let boxTex = null;
+    let teethTex = null;
+
+    function onResize() {
+      fitCanvas43(); // ← mantiene 4:3
+      if (avatar) frameToView(avatar, VIEW);
+    }
+    addEventListener('resize', onResize, { passive: true });
+    addEventListener('orientationchange', onResize, { passive: true });
+
+    // ---------- HELPERS ----------
+    const clamp01 = (x) => Math.min(1, Math.max(0, x));
+    function disableFrustumCulling(root) { root.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); }
+    const findExact = (root, name) => { let f = null; root.traverse(o => { if (!f && o.name === name) f = o; }); return f; };
+    const findFirst = (root, names) => { for (const n of names) { const o = findExact(root, n); if (o) return o; } return null; };
+    const findRegex = (root, regex) => { let found = []; root.traverse(o => { if (regex.test(o.name)) found.push(o); }); return found; };
+
+    function findFirstByHints(root, hints) {
+      const rx = new RegExp(hints.map(h => `(${h})`).join('|'), 'i');
+      const found = [];
+      root.traverse(o => { if (rx.test(o.name)) found.push(o); });
+      return found[0] || null;
+    }
+    function getLocalFromWorldPoint(obj, worldPt) {
+      return obj.parent ? obj.parent.worldToLocal(worldPt.clone()) : worldPt.clone();
+    }
+
+    const restQ = new Map(), restP = new Map();
+    const saveRest = o => { if (!o) return; if (!restQ.has(o)) restQ.set(o, o.quaternion.clone()); if (!restP.has(o)) restP.set(o, o.position.clone()); };
+    const restore = o => { if (!o) return; const q = restQ.get(o), p = restP.get(o); if (q) o.quaternion.copy(q); if (p) o.position.copy(p); };
+    const rot = (n, ax, r) => { if (!n) return; restore(n); const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
+    const mov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; restore(n); n.position.x += dx; n.position.y += dy; n.position.z += dz; };
+
+    const addRot = (n, ax, r) => { if (!n || r === 0) return; const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
+    const addMov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; n.position.x += dx; n.position.y += dy; n.position.z += dz; };
+
+    function resetMouthPose() {
+      if (CTRL_MOUTH) restore(CTRL_MOUTH);
+      if (CTRL_JAW) restore(CTRL_JAW);
+      if (DEF_JAW) restore(DEF_JAW);
+      if (TEETH_LOWER) restore(TEETH_LOWER);
+      if (TEETH_UPPER) restore(TEETH_UPPER);
+      (LIP_UP || []).forEach(n => restore(n));
+      (LIP_DOWN || []).forEach(n => restore(n));
+      (TONGUE || []).forEach(n => restore(n));
+    }
+
+    function copyPose(from, to) { if (!from || !to) return; to.position.copy(from.position); to.quaternion.copy(from.quaternion); }
+
+    // ---------- BOUNDS ----------
+    function computeRobustBounds(root) {
+      root.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      let found = false;
+      root.traverse(o => {
+        if (o.isMesh || o.isSkinnedMesh) {
+          const g = o.geometry;
+          if (g) {
+            if (!g.boundingBox) g.computeBoundingBox();
+            const bb = g.boundingBox?.clone();
+            if (bb && isFinite(bb.min.x) && isFinite(bb.max.x)) {
+              bb.applyMatrix4(o.matrixWorld);
+              box.union(bb);
+              found = true;
+            }
+          }
+        }
+        if (o.isBone) {
+          const p = new THREE.Vector3(); o.getWorldPosition(p);
+          box.expandByPoint(p); found = true;
+        }
+      });
+      if (!found || !isFinite(box.min.x) || !isFinite(box.max.x)) return null;
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      return { box, sphere };
+    }
+    function computeBaseSphere(object) { const b = computeRobustBounds(object); return b ? b.sphere : null; }
+    function normalizeAndCenter(object) {
+      const b = computeRobustBounds(object);
+      if (!b) { console.warn('[bounds] No se pudo calcular'); return; }
+      const { box, sphere } = b;
+      const size = box.getSize(new THREE.Vector3());
+      const maxSide = Math.max(size.x, size.y, size.z);
+      const center = sphere.center;
+      object.position.x -= center.x;
+      object.position.z -= center.z;
+      const target = 2.5;
+      if (maxSide < 0.05 || maxSide > 50) { object.scale.multiplyScalar(target / maxSide); }
+      object.userData.baseSphere = sphere;
+    }
+
+    // ---------- RIG ----------
+    let ROOT = null, DEF_HEAD = null, CTRL_HEAD_UP = null;
+    let CTRL_MOUTH = null, CTRL_JAW = null, DEF_JAW = null;
+    let TEETH_LOWER = null, TEETH_UPPER = null;
+    let LIP_UP = [], LIP_DOWN = [];
+    let LIP_UP_CORNERS = [], LIP_UP_CENTER = [];
+    let LIP_DOWN_CORNERS = [], LIP_DOWN_CENTER = [];
+    let OJO_L = null, OJO_R = null;
+    let FK_LEFT = [], FK_RIGHT = [];
+    let ARM_L = [], ARM_R = [];
+    let TONGUE = [];
+
+    // ---------- UI ----------
+    const statusEl = document.getElementById('status');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnDisconnect = document.getElementById('btnDisconnect');
+    const micSelect = document.getElementById('micSelect');
+    const btnTestTalk = document.getElementById('btnTestTalk');
+    const statusElSet = (t) => statusEl.textContent = t;
+
+    const lvlTxt = document.getElementById('lvlTxt');
+    const lvlBar = document.getElementById('lvlBar');
+    const talkDot = document.getElementById('talkDot');
+    const openTxt = document.getElementById('openTxt');
+
+    // ---------- CARGA (GLB) ----------
+    const loader = new GLTFLoader();
+    const draco = new DRACOLoader(); draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/'); loader.setDRACOLoader(draco);
+    const ktx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/'); ktx2.detectSupport(renderer); loader.setKTX2Loader(ktx2);
+    loader.setMeshoptDecoder(MeshoptDecoder);
+
+    let mixer = null, clock = null, actionBody = null, actionMouth = null, actionTalk = null;
+
+    // Pre-carga de texturas (opcional, también se cargan on-demand)
+    if (BOX_TEXTURE_URL) {
+      boxTex = texLoader.load(BOX_TEXTURE_URL);
+      boxTex.colorSpace = THREE.SRGBColorSpace;
+      boxTex.wrapS = boxTex.wrapT = THREE.RepeatWrapping;
+      boxTex.repeat.set(BOX_TEXTURE_REPEAT.x, BOX_TEXTURE_REPEAT.y);
+      boxTex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    }
+    if (TEETH_TEXTURE_URL) {
+      teethTex = texLoader.load(TEETH_TEXTURE_URL);
+      teethTex.colorSpace = THREE.SRGBColorSpace;
+      teethTex.anisotropy = renderer.capabilities.getMaxAnisotropy?.() || 1;
+    }
+
+    console.log('[GLB] Cargando:', GLB_URL);
+    loader.load(GLB_URL, (gltf) => {
+      avatar = gltf.scene;
+      if (!avatar) { throw new Error('GLB sin escena'); }
+
+      normalizeAndCenter(avatar);
+      disableFrustumCulling(avatar);
+      pivot.add(avatar);
+
+      avatar.traverse(o => {
+        if (o.visible === false) o.visible = true;
+        if (o.isMesh || o.isSkinnedMesh) {
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          for (const m of mats) {
+            if (!m) continue;
+            if (m.opacity === 0) m.opacity = 1;
+            if (m.transparent && m.opacity >= 1) m.transparent = false;
+            if ('side' in m) m.side = THREE.DoubleSide;
+            if ('roughness' in m) m.roughness = Math.min(0.65, Math.max(0.0, m.roughness ?? 0.5));
+            if ('metalness' in m) m.metalness = Math.min(0.45, Math.max(0.0, m.metalness ?? 0.05));
+            m.depthWrite = true;
+            m.needsUpdate = true;
+          }
+        }
+      });
+
+      if (!avatar.userData.baseSphere) {
+        const s = computeBaseSphere(avatar);
+        if (s) avatar.userData.baseSphere = s;
+      }
+
+      // === NODOS (DEF_*) ===
+      function hasSideL(n) { return /\.L\b|_L\b|\bL\b/.test(n.name); }
+      function hasSideR(n) { return /\.R\b|_R\b|\bR\b/.test(n.name); }
+      function isCorner(n) { return hasSideL(n) || hasSideR(n) || /CORNER/i.test(n.name); }
+
+      ROOT = findFirst(avatar, ['ROOT']) || findRegex(avatar, /\bKRANG_RIG\b/i)[0] || avatar;
+      DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP', 'DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
+      CTRL_HEAD_UP = null;
+
+      CTRL_MOUTH = null;
+      CTRL_JAW = findFirst(avatar, ['CTRL_JAW']) || null;
+      DEF_JAW = findFirst(avatar, ['DEF_JAW']) || findRegex(avatar, /DEF[_-]?JAW/i)[0];
+
+      TEETH_LOWER = findFirst(avatar, ['DEF_TEETH_DOWN']) || findRegex(avatar, /(DEF_)?TEETH.*(DOWN|LOWER)/i)[0] || null;
+      TEETH_UPPER = null;
+
+      const lipsAnyUpper = findRegex(avatar, /\bDEF_LIP(?!_DOWN)/i);
+      const lipsAnyLower = findRegex(avatar, /\bDEF_LIP_DOWN_/i);
+      LIP_UP = lipsAnyUpper;
+      LIP_DOWN = lipsAnyLower;
+
+      LIP_UP_CORNERS = (LIP_UP || []).filter(isCorner);
+      LIP_UP_CENTER = (LIP_UP || []).filter(n => !isCorner(n));
+      LIP_DOWN_CORNERS = (LIP_DOWN || []).filter(isCorner);
+      LIP_DOWN_CENTER = (LIP_DOWN || []).filter(n => !isCorner(n));
+
+      OJO_L = findFirst(avatar, ['DEF_EYE.L']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)L\b/i)[0];
+      OJO_R = findFirst(avatar, ['DEF_EYE.R']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)R\b/i)[0];
+
+      const tongueRaw = findRegex(avatar, /DEF[_-]?TONGUE[_-]?(\d+)/i);
+      TONGUE = tongueRaw.slice().sort((a, b) => {
+        const ai = parseInt((a.name.match(/(\d+)/) || [])[1] || '0', 10);
+        const bi = parseInt((b.name.match(/(\d+)/) || [])[1] || '0', 10);
+        return ai - bi;
+      });
+
+      const tentL = findRegex(avatar, /DEF[_-]?TENTACULO[_-]?B[_-]?\d+\.(L|_L|\bL\b)/i);
+      const tentR = findRegex(avatar, /DEF[_-]?TENTACULO[_-]?B[_-]?\d+\.(R|_R|\bR\b)/i);
+      FK_LEFT = tentL;
+      FK_RIGHT = tentR;
+
+      ;[ROOT, DEF_HEAD, CTRL_HEAD_UP, CTRL_MOUTH, CTRL_JAW, DEF_JAW, TEETH_LOWER, TEETH_UPPER, OJO_L, OJO_R,
+        ...LIP_UP, ...LIP_DOWN, ...FK_LEFT, ...FK_RIGHT, ...ARM_L, ...ARM_R, ...TONGUE].forEach(saveRest);
+
+      // Encuadre + entorno
+      onResize();
+      frameToView(avatar, VIEW);
+      addCinematicLights(avatar);
+      buildShadowReceiversAround(avatar);
+
+      const tmpBox = computeRobustBounds(avatar)?.box;
+      if (tmpBox) {
+        const sz = tmpBox.getSize(new THREE.Vector3()).y;
+        controls.target.y -= 0.08 * sz;
+      } else {
+        controls.target.y -= 0.1;
+      }
+      camera.position.y -= 0.05;
+      controls.update();
+
+      // Aplica textura a dientes si hay
+      if (teethTex) {
+        applyTeethTexture(avatar, teethTex);
+      }
+
+      // === CAJA: crear envolvente (intenta caja.glb, si no fallback) ===
+      addContainerBoxFor(avatar).catch(() => { });
+
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('hud').style.display = 'none';
+
+      // --- Mezclador / Clips ---
+      if (gltf.animations && gltf.animations.length) {
+        mixer = new THREE.AnimationMixer(avatar);
+        clock = new THREE.Clock();
+
+        const rxMouthish = /(MOUTH|JAW|LIP|TONGUE|NOSE|BOCA|DIENTE|LABIO|Cabeza\.morphTargetInfluences|Head\.morphTargetInfluences)/i;
+        const rxTeethAny = /(Teeth|Dientes)/i;
+
+        let mouthTracks = [], bodyTracks = [], maxDuration = 0;
+        for (const clip of gltf.animations) {
+          maxDuration = Math.max(maxDuration, clip.duration);
+          for (const tr of clip.tracks) {
+            const isMouth = rxMouthish.test(tr.name);
+            const isTeeth = rxTeethAny.test(tr.name);
+            if (isMouth) { if (!isTeeth) mouthTracks.push(tr); }
+            else bodyTracks.push(tr);
+          }
+        }
+
+        if (bodyTracks.length) {
+          const clipBody = new THREE.AnimationClip('BodyOnly', maxDuration || 1, bodyTracks);
+          actionBody = mixer.clipAction(clipBody); actionBody.play();
+        }
+
+        const talkByName = gltf.animations.find(c => TALK_NAME_HINTS.some(h => c.name?.toLowerCase().includes(h)));
+        let talkClip = talkByName || (mouthTracks.length ? new THREE.AnimationClip('TalkSynth', maxDuration || 1, mouthTracks) : null);
+
+        if (talkClip) {
+          actionTalk = mixer.clipAction(talkClip);
+          actionTalk.setLoop(THREE.LoopRepeat, Infinity);
+          actionTalk.clampWhenFinished = false;
+          actionTalk.enabled = true;
+          actionTalk.play();
+          actionTalk.setEffectiveWeight(0.0);
+        } else if (mouthTracks.length) {
+          const clipMouth = new THREE.AnimationClip('MouthOnlyNoTeeth', maxDuration || 1, mouthTracks);
+          actionMouth = mixer.clipAction(clipMouth); actionMouth.play();
+          actionMouth.enabled = true;
+          actionMouth.setEffectiveWeight(0.0);
+        }
+      }
+
+      pivot.rotation.set(
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.x),
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.y),
+        THREE.MathUtils.degToRad(FIGURE_TILT_DEG.z)
+      );
+
+    }, (ev) => { }, (err) => {
+      console.error('GLB load error:', err);
+      document.getElementById('loader').querySelector('.loader-text').textContent = 'Error loading 3D avatar';
+      alert('No se pudo cargar el GLB. Revisa la consola (F12) para detalles.');
+    });
+
+    // ---------- ILUMINACIÓN / SOMBRAS ----------
+    function addCinematicLights(target) {
+      const amb = new THREE.AmbientLight(0xffffff, 0.30); scene.add(amb);
+
+      const key = new THREE.DirectionalLight(0xfff2e0, 1.45);
+      key.position.set(-0.0, 0.8, 1);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.radius = 4;
+      key.shadow.bias = -0.00018;
+
+      const b = computeRobustBounds(target || pivot);
+      const s = (b?.box.getSize(new THREE.Vector3()).length() ?? 5) * 0.6;
+      key.shadow.camera.near = 0;
+      key.shadow.camera.far = 10;
+      key.shadow.camera.left = -s; key.shadow.camera.right = s;
+      key.shadow.camera.top = s; key.shadow.camera.bottom = -s;
+      scene.add(key);
+
+      const fill = new THREE.DirectionalLight(0xaec8ff, 0.55);
+      fill.position.set(-1.1, 1.2, 0.8);
+      scene.add(fill);
+
+      const rim = new THREE.DirectionalLight(0xfff2d0, 0.50);
+      rim.position.set(0.5, 0.9, -1.2);
+      scene.add(rim);
+    }
+    function buildShadowReceiversAround(object) {
+      const b = computeRobustBounds(object);
+      const box = b?.box ?? new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const shadowMatFloor = new THREE.ShadowMaterial({ opacity: 0.35 }); shadowMatFloor.depthWrite = false;
+      const shadowMatWall = new THREE.ShadowMaterial({ opacity: 0.18 }); shadowMatWall.depthWrite = false;
+
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(size.x * 2.2, size.z * 2.2), shadowMatFloor);
+      floor.rotation.x = -Math.PI * 0.5;
+      floor.position.set(center.x, box.min.y + 0.02, center.z + size.z * 0.15);
+      floor.receiveShadow = true; floor.renderOrder = -1; scene.add(floor);
+
+      const backWall = new THREE.Mesh(new THREE.PlaneGeometry(size.x * 2.0, size.y * 2.0), shadowMatWall);
+      backWall.position.set(center.x, center.y, box.max.z + size.z * 0.25);
+      backWall.receiveShadow = true; scene.add(backWall);
+
+      const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(size.z * 2.0, size.y * 2.0), shadowMatWall);
+      leftWall.rotation.y = Math.PI * 0.5;
+      leftWall.position.set(box.min.x - size.x * 0.35, center.y, center.z + size.z * 0.05);
+      leftWall.receiveShadow = true; scene.add(leftWall);
+
+      const rightWall = leftWall.clone();
+      rightWall.position.x = box.max.x + size.x * 0.35;
+      scene.add(rightWall);
+    }
+
+    // === CAJA: Rotación programática ===
+    function setBoxRotation({ x = 0, y = 0, z = 0, degrees = true } = {}) {
+      if (!containerBoxPivot) return;
+      if (degrees) {
+        containerBoxPivot.rotation.set(
+          THREE.MathUtils.degToRad(x),
+          THREE.MathUtils.degToRad(y),
+          THREE.MathUtils.degToRad(z)
+        );
+      } else {
+        containerBoxPivot.rotation.set(x, y, z);
+      }
+    }
+
+    // === CAJA: Creación + offset aplicado + ajuste de puerta + textura ===
+    async function addContainerBoxFor(targetObj) {
+      const b = computeRobustBounds(targetObj);
+      if (!b) { console.warn('[box] No bounds, fallback'); return addFallbackBox(targetObj); }
+      const size = b.box.getSize(new THREE.Vector3()); // tamaño del avatar
+      const center = b.box.getCenter(new THREE.Vector3());
+
+      // Tamaño deseado de la caja por eje (aplica BOX_SCALE)
+      const desired = new THREE.Vector3(
+        size.x * (BOX_SCALE?.x ?? 1.00),
+        size.y * (BOX_SCALE?.y ?? 1.00),
+        size.z * (BOX_SCALE?.z ?? 1.00)
+      );
+
+      // pivot de la caja y offset de posición
+      const pivotBox = new THREE.Group();
+      pivotBox.position.copy(center);
+      if (BOX_OFFSET_MODE === 'ratio') {
+        pivotBox.position.x += BOX_OFFSET.x * size.x;
+        pivotBox.position.y += BOX_OFFSET.y * size.y;
+        pivotBox.position.z += BOX_OFFSET.z * size.z;
+      } else {
+        pivotBox.position.x += BOX_OFFSET.x;
+        pivotBox.position.y += BOX_OFFSET.y;
+        pivotBox.position.z += BOX_OFFSET.z;
+      }
+      pivot.add(pivotBox);
+      containerBoxPivot = pivotBox;
+
+      try {
+        await new Promise((resolve, reject) => {
+          loader.load(BOX_URL, (glb) => {
+            const boxRoot = glb.scene;
+            if (!boxRoot) return reject(new Error('caja.glb sin escena'));
+            disableFrustumCulling(boxRoot);
+
+            const bb = computeRobustBounds(boxRoot);
+            if (!bb) return reject(new Error('caja.glb sin bounds'));
+            const os = bb.box.getSize(new THREE.Vector3());
+            const oc = bb.box.getCenter(new THREE.Vector3());
+
+            // Recentrar y escalar la caja importada
+            boxRoot.position.sub(oc);
+            const sx = desired.x / (os.x || 1);
+            const sy = desired.y / (os.y || 1);
+            const sz = desired.z / (os.z || 1);
+            boxRoot.scale.set(sx, sy, sz);
+
+            // Materiales de la caja + TEXTURA
+            boxRoot.traverse(o => {
+              if (o.isMesh || o.isSkinnedMesh) {
+                let m = o.material;
+                const mats = Array.isArray(m) ? m : [m];
+                for (let i = 0; i < mats.length; i++) {
+                  const mm = mats[i];
+                  if (!mm) continue;
+
+                  // Si tenemos textura, usamos MeshStandardMaterial con map
+                  if (boxTex) {
+                    const newMat = new THREE.MeshStandardMaterial({
+                      map: boxTex,
+                      color: 0xffffff,
+                      roughness: 0.7,
+                      metalness: 0.0,
+                      side: THREE.DoubleSide,
+                      transparent: BOX_USE_TRANSPARENCY,
+                      opacity: BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0
+                    });
+                    mats[i] = newMat;
+                  } else {
+                    // Sin textura: deja material pero lo adecenta
+                    mm.transparent = BOX_USE_TRANSPARENCY;
+                    mm.opacity = BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0;
+                    if ('roughness' in mm) mm.roughness = 0.9;
+                    if ('metalness' in mm) mm.metalness = 0.0;
+                    if ('side' in mm) mm.side = THREE.DoubleSide;
+                    mm.depthWrite = !BOX_USE_TRANSPARENCY;
+                    mm.needsUpdate = true;
+                  }
+                }
+                o.material = Array.isArray(m) ? mats : mats[0];
+              }
+            });
+
+            containerBox = boxRoot;
+            pivotBox.add(containerBox);
+
+            // Rotación inicial
+            setBoxRotation(BOX_ROT_INIT);
+
+            // === PUERTA: AJUSTE DE POSICIÓN ===
+            try {
+              const door = findFirstByHints(containerBox, DOOR_HINTS);
+              if (door) {
+                const bBox = computeRobustBounds(containerBox)?.box;
+                if (bBox) {
+                  const boxSize = bBox.getSize(new THREE.Vector3());
+                  const boxHalfY = boxSize.y * 0.5;
+
+                  const dB = computeRobustBounds(door);
+                  if (dB && DOOR_ALIGN !== 'none') {
+                    if (DOOR_ALIGN === 'center') {
+                      const worldCenter = dB.box.getCenter(new THREE.Vector3());
+                      const localCenter = getLocalFromWorldPoint(door, worldCenter);
+                      door.position.sub(localCenter);
+                    } else if (DOOR_ALIGN === 'bottom') {
+                      const worldMin = dB.box.min.clone();
+                      const localMin = getLocalFromWorldPoint(door, worldMin);
+                      const targetBottom = -boxHalfY + (0.02 * boxSize.y);
+                      const deltaY = targetBottom - localMin.y;
+                      door.position.y += deltaY;
+                    }
+                  }
+
+                  // Offset adicional
+                  if (DOOR_OFFSET_MODE === 'ratio') {
+                    door.position.x += DOOR_OFFSET.x * boxSize.x;
+                    door.position.y += DOOR_OFFSET.y * boxSize.y;
+                    door.position.z += DOOR_OFFSET.z * boxSize.z;
+                  } else {
+                    door.position.x += DOOR_OFFSET.x;
+                    door.position.y += DOOR_OFFSET.y;
+                    door.position.z += DOOR_OFFSET.z;
+                  }
+                }
+              } else {
+                console.warn('[puerta] No se encontró nodo con nombre ~', DOOR_HINTS.join(', '));
+              }
+            } catch (e) {
+              console.warn('[puerta] Ajuste falló:', e);
+            }
+            // === FIN PUERTA ===
+
+            resolve();
+          }, undefined, reject);
+        });
+      } catch (e) {
+        console.warn('[box] No se pudo cargar caja.glb, fallback:', e.message);
+        addFallbackBox(targetObj, desired, center, pivotBox);
+      }
+    }
+
+    function addFallbackBox(targetObj, desired = null, center = null, pivotBox = null) {
+      const b = computeRobustBounds(targetObj);
+      if (!b) return;
+
+      const base = b.box.getSize(new THREE.Vector3());
+      const size = desired || new THREE.Vector3(
+        base.x * (BOX_SCALE?.x ?? 1.00),
+        base.y * (BOX_SCALE?.y ?? 1.00),
+        base.z * (BOX_SCALE?.z ?? 1.00)
+      );
+      const c = center || b.box.getCenter(new THREE.Vector3());
+
+      const pv = pivotBox || new THREE.Group();
+      if (!pivotBox) {
+        pv.position.copy(c);
+        if (BOX_OFFSET_MODE === 'ratio') {
+          pv.position.x += BOX_OFFSET.x * base.x;
+          pv.position.y += BOX_OFFSET.y * base.y;
+          pv.position.z += BOX_OFFSET.z * base.z;
+        } else {
+          pv.position.x += BOX_OFFSET.x;
+          pv.position.y += BOX_OFFSET.y;
+          pv.position.z += BOX_OFFSET.z;
+        }
+        pivot.add(pv);
+        containerBoxPivot = pv;
+      }
+
+      const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xaaaaaa,
+        wireframe: BOX_WIREFRAME,
+        map: boxTex || null,
+        roughness: 0.7,
+        metalness: 0.0,
+        side: THREE.DoubleSide,
+        transparent: BOX_USE_TRANSPARENCY,
+        opacity: BOX_USE_TRANSPARENCY ? BOX_OPACITY : 1.0,
+        depthWrite: !BOX_USE_TRANSPARENCY
+      });
+      if (boxTex) { boxTex.repeat.set(BOX_TEXTURE_REPEAT.x, BOX_TEXTURE_REPEAT.y); }
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, 0, 0);
+      mesh.renderOrder = -10;
+
+      pv.add(mesh);
+      containerBox = mesh;
+
+      setBoxRotation(BOX_ROT_INIT);
+    }
+    // === FIN CAJA ===
+
+    // ---------- ENCUADRE ----------
+    function frameToView(object, {
+      fitPadding = (/Mobi|Android/i.test(navigator.userAgent) ? 1.24 : 1.30),
+      extraBack = 1.45,
+      targetYOffsetRatio = 0.18,
+      faceFront = true,
+      targetXOffsetRatio = 0.00
+    } = {}) {
+      let sphere = object.userData.baseSphere;
+      if (!sphere || !isFinite(sphere.radius) || sphere.radius === 0) {
+        const b = computeRobustBounds(object);
+        if (!b) return;
+        sphere = b.sphere;
+        object.userData.baseSphere = sphere;
+      }
+      const center = sphere.center.clone();
+      const sizeY = Math.max(0.001, sphere.radius * 2);
+      const fovRad = THREE.MathUtils.degToRad(camera.fov * 0.5);
+      const dist = ((sphere.radius * fitPadding) / Math.sin(fovRad)) * extraBack;
+
+      const target = center.clone();
+      target.y += sizeY * targetYOffsetRatio;
+
+      const xOff = ALWAYS_CENTER_INIT ? 0.00 : targetXOffsetRatio;
+      target.x += (sphere.radius * 2) * xOff;
+
+      const dir = faceFront ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3().subVectors(camera.position, target).normalize();
+      dir.multiplyScalar(dist);
+      camera.position.copy(target).add(dir);
+
+      camera.near = Math.max(0.01, (sphere.radius) / 200);
+      camera.far = Math.max(1000, sphere.radius * 40);
+      camera.updateProjectionMatrix();
+
+      controls.target.copy(target);
+      controls.update();
+      controls.minDistance = dist * 0.75;
+      controls.maxDistance = dist * 2.2;
+    }
+
+    // ---------- AUDIO / SESIÓN ----------
+    let conversation = null, volPoller = null, levelOut = 0;
+    let isConnecting = false;
+
+    let micGain = 1;
+    let micCalibrated = false;
+    async function calibrateMicGain(ms = 700) {
+      const t0 = performance.now();
+      let sum = 0, n = 0;
+      while (performance.now() - t0 < ms) {
+        sum += levelOut; n++;
+        await new Promise(r => setTimeout(r, 16));
+      }
+      const avg = (n ? sum / n : 0.05);
+      const target = 0.12;
+      micGain = (avg > 1e-3) ? (target / avg) : 1;
+      micCalibrated = true;
+    }
+
+    async function listMics() {
+      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter(d => d.kind === 'audioinput'); micSelect.innerHTML = '';
+      for (const it of mics) {
+        const opt = document.createElement('option'); opt.value = it.deviceId; opt.textContent = it.label || `Mic (${it.deviceId.slice(0, 6)}…)`;
+        micSelect.appendChild(opt);
+      }
+    }
+    listMics(); navigator.mediaDevices.addEventListener?.('devicechange', listMics);
+
+    async function getWebRTCToken() {
+      const r = await fetch(`${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`, { credentials: 'omit' });
+      if (!r.ok) throw new Error('Could not obtain WebRTC token');
+      const { token } = await r.json(); return token;
+    }
+
+    const OUT_GATE = 0.02;
+    const OUT_GAIN = 4.2;
+    const OUT_GAMMA = 0.75;
+
+    const ATTACK = 0.55, RELEASE = 0.28, RELEASE_SILENT = 0.80;
+    const MAX_MOUTH_DEG = 22;
+
+    const THRESH_ON = 0.06;
+    const THRESH_OFF = 0.03;
+    const HOLD_ON_MS = 80;
+    const HOLD_OFF_MS = 150;
+
+    let agentTalking = false;
+    let aboveSince = 0, belowSince = 0;
+
+    function setUIConnected(state) {
+      if (state) {
+        btnConnect.style.display = 'none';
+        btnDisconnect.style.display = '';
+        btnConnect.disabled = true;
+        micSelect.disabled = true;
+        statusElSet('connected');
+      } else {
+        btnConnect.style.display = '';
+        btnDisconnect.style.display = 'none';
+        btnConnect.disabled = false;
+        micSelect.disabled = false;
+        statusElSet('disconnected');
+      }
+    }
+
+    let forceTalking = false;
+    btnTestTalk.onclick = () => {
+      forceTalking = !forceTalking;
+      btnTestTalk.textContent = forceTalking ? 'Stop test' : 'Test lipsync';
+    };
+
+    btnConnect.onclick = async () => {
+      if (conversation || isConnecting) return;
+      isConnecting = true;
+      btnConnect.disabled = true;
+      statusElSet('connecting…');
+      try {
+        const inputDeviceId = micSelect.value || undefined;
+        const token = await getWebRTCToken();
+
+        conversation = await Conversation.startSession({
+          agentId: AGENT_ID, connectionType: 'webrtc', inputDeviceId, webrtc: { token }
+        });
+
+        if (volPoller) { clearInterval(volPoller); volPoller = null; }
+        volPoller = setInterval(async () => {
+          try {
+            const v = await conversation.getOutputVolume?.();
+            if (typeof v === 'number') {
+              const ALPHA = 0.35;
+              levelOut = (1 - ALPHA) * levelOut + ALPHA * v;
+
+              const now = performance.now();
+              if (levelOut >= THRESH_ON) { aboveSince = aboveSince || now; belowSince = 0; if (!agentTalking && (now - aboveSince) >= HOLD_ON_MS) agentTalking = true; }
+              else if (levelOut <= THRESH_OFF) { belowSince = belowSince || now; aboveSince = 0; if (agentTalking && (now - belowSince) >= HOLD_OFF_MS) agentTalking = false; }
+
+              lvlTxt.textContent = levelOut.toFixed(2);
+              lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
+              talkDot.classList.toggle('on', agentTalking);
+            }
+          } catch { }
+        }, 60);
+
+        setUIConnected(true);
+        calibrateMicGain();
+      } catch (e) {
+        console.error(e);
+        statusElSet('failed');
+        alert(e.message);
+        setUIConnected(false);
+        conversation = null;
+      } finally {
+        isConnecting = false;
+      }
+    };
+
+    btnDisconnect.onclick = async () => {
+      try { if (conversation) await conversation.endSession(); } catch { }
+      conversation = null;
+      if (volPoller) { clearInterval(volPoller); volPoller = null; }
+      levelOut = 0; agentTalking = false; aboveSince = 0; belowSince = 0;
+      setUIConnected(false);
+    };
+
+    // ---------- MATERIALES/TEETH ----------
+    function applyTeethTexture(root, texture) {
+      const rxTeeth = /(teeth|dientes|tooth)/i;
+      root.traverse(o => {
+        if (o.isMesh || o.isSkinnedMesh) {
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          const nameHint = (o.name || '') + '|' + (mats.map(m => m?.name || '').join('|'));
+          if (rxTeeth.test(nameHint)) {
+            for (let i = 0; i < mats.length; i++) {
+              const m = mats[i];
+              if (!m || m.isMeshStandardMaterial) {
+                const mm = m || new THREE.MeshStandardMaterial();
+                mm.map = texture;
+                mm.color = new THREE.Color(0xffffff);
+                mm.roughness = 0.35;
+                mm.metalness = 0.0;
+                mm.envMapIntensity = 0.5;
+                mm.needsUpdate = true;
+                mats[i] = mm;
+              } else {
+                // Reemplaza por Standard si fuera otro tipo
+                mats[i] = new THREE.MeshStandardMaterial({
+                  map: texture,
+                  color: 0xffffff,
+                  roughness: 0.35,
+                  metalness: 0.0
+                });
+              }
+            }
+            o.material = Array.isArray(o.material) ? mats : mats[0];
+          }
+        }
+      });
+    }
+
+    // ---------- ANIMACIÓN ----------
+    function applyMixerAdditives(open) {
+      if (!open) return;
+      const upDy = +0.08 * open;
+      const upRx = THREE.MathUtils.degToRad(6) * open;
+      (LIP_UP || []).forEach(n => { addMov(n, 0, upDy, 0); addRot(n, new THREE.Vector3(1, 0, 0), upRx); });
+    }
+
+    let eyesCur = new THREE.Vector2(0, 0), eyesTarget = new THREE.Vector2(0, 0), nextSaccadeAt = 0;
+    let jawOpen = 0;
+
+    const SEAL = {
+      enabled: true,
+      lowerUpMid: -2.8,
+      lowerUpCornerScale: 2.45,
+      lowerRxDeg: -25,
+      cornerPinchX: -10,
+      cornerRotZDeg: -1,
+      upperDown: -1,
+      upperRxDeg: -8,
+      jawRxDeg: 18
+    };
+
+    function applyMouth(open) {
+      const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
+
+      if (CTRL_MOUTH) rot(CTRL_MOUTH, new THREE.Vector3(1, 0, 0), -ang);
+      if (CTRL_JAW) rot(CTRL_JAW, new THREE.Vector3(1, 0, 0), -ang * 0.85);
+      if (DEF_JAW) rot(DEF_JAW, new THREE.Vector3(1, 0, 0), -ang * 0.65);
+
+      if (TEETH_LOWER) {
+        copyPose(DEF_JAW || CTRL_JAW || CTRL_MOUTH, TEETH_LOWER);
+        addMov(TEETH_LOWER, 0, -0.005 * open, -0.04 * open);
+        addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), -ang * 0.08);
+      }
+
+      const upDy = -2.45 * open, upRx = +ang * 0.14;
+      const dnDy = -1.85 * open, dnRx = -ang * 0.22;
+      (LIP_UP || []).forEach(n => { mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1, 0, 0), upRx); });
+      (LIP_DOWN || []).forEach(n => { mov(n, 0, dnDy, 0); rot(n, new THREE.Vector3(1, 0, 0), dnRx); });
+    }
+
+    function applySeal(k) {
+      if (!SEAL.enabled || k <= 0) return;
+      const rxLower = THREE.MathUtils.degToRad(SEAL.lowerRxDeg) * k;
+      const rxUpper = THREE.MathUtils.degToRad(SEAL.upperRxDeg) * k;
+      const rxJaw = THREE.MathUtils.degToRad(SEAL.jawRxDeg) * k;
+      const rzCorner = THREE.MathUtils.degToRad(SEAL.cornerRotZDeg) * k;
+
+      (LIP_DOWN_CENTER || []).forEach(n => {
+        addMov(n, 0, +SEAL.lowerUpMid * k, 0);
+        addRot(n, new THREE.Vector3(1, 0, 0), rxLower);
+      });
+      (LIP_DOWN_CORNERS || []).forEach(n => {
+        addMov(n, 0, +(SEAL.lowerUpMid * SEAL.lowerUpCornerScale) * k, 0);
+        const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
+        const dir = isLeft ? +1 : -1;
+        addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
+        addRot(n, new THREE.Vector3(0, 0, 1), rzCorner * -dir);
+        addRot(n, new THREE.Vector3(1, 0, 0), rxLower * 0.7);
+      });
+
+      (LIP_UP_CENTER || []).forEach(n => {
+        addMov(n, 0, -SEAL.upperDown * k, 0);
+        addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.8);
+      });
+      (LIP_UP_CORNERS || []).forEach(n => {
+        addMov(n, 0, -(SEAL.upperDown * 0.5) * k, 0);
+        addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.6);
+      });
+
+      if (CTRL_JAW) addRot(CTRL_JAW, new THREE.Vector3(1, 0, 0), +rxJaw);
+      if (DEF_JAW) addRot(DEF_JAW, new THREE.Vector3(1, 0, 0), +rxJaw * 0.7);
+      if (TEETH_LOWER) addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), +rxJaw * 0.25);
+    }
+
+    // --- util: plano “piso” de la boca (dientes inferiores / mandíbula)
+    function getMouthFloorY() {
+      let y = null;
+      try {
+        const bTeeth = TEETH_LOWER ? computeRobustBounds(TEETH_LOWER) : null;
+        if (bTeeth) y = (y == null) ? bTeeth.box.min.y : Math.min(y, bTeeth.box.min.y);
+        const bJaw = DEF_JAW ? computeRobustBounds(DEF_JAW) : null;
+        if (bJaw) y = (y == null) ? bJaw.box.min.y : Math.min(y, bJaw.box.min.y);
+      } catch { }
+      return (y == null) ? 0 : y;
+    }
+
+    // --- LENGUA con límites seguros (sin idle; sólo se mueve con apertura real)
+    function applyTongue(t, open) {
+      if (!TONGUE || TONGUE.length === 0) return;
+
+      // No mover si la boca está poco abierta
+      if (open < TONGUE_CFG.MIN_OPEN) { TONGUE.forEach(restore); return; }
+
+      // Escalado suave a partir de MIN_OPEN
+      const k = Math.min(1, Math.max(0, (open - TONGUE_CFG.MIN_OPEN) / (1 - TONGUE_CFG.MIN_OPEN)));
+
+      const baseCurl = THREE.MathUtils.degToRad(TONGUE_CFG.CURL_DEG) * k;
+      const wagAmp = THREE.MathUtils.degToRad(TONGUE_CFG.WAG_DEG) * k;
+      const wagSpd = TONGUE_CFG.WAG_SPD;
+
+      // Pose provisional
+      TONGUE.forEach((n, i) => {
+        restore(n);
+        const fall = 1 - i * 0.18;
+
+        // Rizo + meneo
+        const curl = baseCurl * fall;
+        const wag = Math.sin(t * wagSpd + i * 0.7) * wagAmp * fall;
+
+        const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -curl);
+        const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wag);
+        n.quaternion.multiply(qx).multiply(qy).normalize();
+
+        // Desplazamientos (suaves y limitados)
+        const up = (TONGUE_CFG.UP_OFFSET * k * fall);
+        const fwd = (TONGUE_CFG.ALLOW_FORWARD ? Math.min(TONGUE_CFG.MAX_FORWARD, 0.006 * k * fall) : 0);
+        addMov(n, 0, up, fwd);   // ⚠️ si tu rig “sale” en -Z, cambia a addMov(n,0,up,-fwd)
+      });
+
+      // Guardarraíl anti “salida por debajo”
+      const tip = TONGUE[TONGUE.length - 1];
+      const tipPos = new THREE.Vector3(); tip.getWorldPosition(tipPos);
+      const floorY = getMouthFloorY() + TONGUE_CFG.SAFETY_CLEARANCE;
+
+      if (tipPos.y < floorY) {
+        const pushUp = floorY - tipPos.y;
+        const relax = Math.min(1, pushUp * 60);
+
+        const L = TONGUE.length;
+        TONGUE.forEach((n, i) => {
+          const w = (1 - i / (L - 1)) * 0.65; // más peso en la base
+          addMov(n, 0, pushUp * w, 0);
+          const qxRelax = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), +baseCurl * 0.5 * relax);
+          n.quaternion.multiply(qxRelax).normalize();
+        });
+      }
+    }
+
+    function applyArmsWhileTalking(t, energy) {
+      const baseAmp = 0.22 * energy;
+      const speed = 2.2;
+      const drive = (arr, invert = false) => {
+        (arr || []).forEach((n, i) => {
+          if (!n) return; restore(n);
+          const falloff = 0.85 - i * 0.18;
+          const angZ = Math.sin(t * speed + i * 0.8) * baseAmp * falloff * (invert ? -1 : 1);
+          const angY = Math.cos(t * speed * 0.9 + i * 0.7) * baseAmp * 0.6 * falloff;
+          const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angZ);
+          const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angY);
+          n.quaternion.multiply(qZ).multiply(qY).normalize();
+        });
+      };
+      drive(ARM_L, false);
+      drive(ARM_R, true);
+    }
+
+    function applyTentacles(t, talkEnergy = 0) {
+      const idleAmp = 0.12, idleSpd = 1.6;
+      const extraAmp = 0.35 * talkEnergy;
+      const liftAmp = 0.28 * talkEnergy;
+      const driveChain = (arr, invert = false) => {
+        (arr || []).forEach((n, i) => {
+          if (!n) return; restore(n);
+          const fall = 0.85 - i * 0.09;
+          const amp = (idleAmp + extraAmp * (1 - i * 0.15)) * fall;
+          const spd = idleSpd;
+          const angZ = Math.sin(t * spd + i * 0.6) * amp * (invert ? -1 : 1);
+          const angY = Math.cos(t * spd * 0.9 + i * 0.5) * amp * 0.6;
+          const lift = (i < 2 ? liftAmp * (invert ? -0.7 : 0.7) : 0.0);
+          const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angZ);
+          const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angY);
+          const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), lift);
+          n.quaternion.multiply(qZ).multiply(qY).multiply(qX).normalize();
+        });
+      };
+      driveChain(FK_LEFT, false);
+      driveChain(FK_RIGHT, true);
+    }
+
+    function applyEyesIdle() {
+      const now = performance.now();
+      if (now > nextSaccadeAt) {
+        nextSaccadeAt = now + 600 + Math.random() * 900;
+        const amp = 0.18; // puedes subirlo a 0.22 si quieres más movimiento
+        eyesTarget.set((Math.random() * 2 - 1) * amp, (Math.random() * 2 - 1) * (amp * 0.6));
+      }
+      eyesCur.lerp(eyesTarget, 0.15);
+      const qy = (x) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), x);
+      const qx = (y) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), y);
+      if (OJO_L) { restore(OJO_L); OJO_L.quaternion.multiply(qy(eyesCur.x)).multiply(qx(eyesCur.y)).normalize(); }
+      if (OJO_R) { restore(OJO_R); OJO_R.quaternion.multiply(qy(eyesCur.x)).multiply(qx(eyesCur.y)).normalize(); }
+    }
+
+    function applyHeadAndBodyIdle(t) {
+      const nod = Math.sin(t * 0.6) * 0.02;
+      if (DEF_HEAD) { restore(DEF_HEAD); rot(DEF_HEAD, new THREE.Vector3(1, 0, 0), nod); }
+      else if (CTRL_HEAD_UP) { restore(CTRL_HEAD_UP); rot(CTRL_HEAD_UP, new THREE.Vector3(1, 0, 0), nod); }
+
+      if (ROOT) {
+        restore(ROOT);
+        if (ENABLE_IDLE_SWAY) {
+          const sway = Math.sin(t * 0.9) * 0.03;
+          const twist = Math.sin(t * 0.5) * 0.015;
+          const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), sway);
+          const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), twist);
+          ROOT.quaternion.multiply(qZ).multiply(qY).normalize();
+        }
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = performance.now() * 0.001;
+
+      if (mixer && clock) mixer.update(clock.getDelta());
+
+      const talkingNow = forceTalking || agentTalking;
+      const talkingFromMic = agentTalking && !forceTalking;
+
+      const Lraw = levelOut;
+      let targetOpen = 0;
+      if (talkingNow) {
+        const lvl = Math.max(0, Lraw - OUT_GATE);
+        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
+        const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
+        targetOpen = Math.min(boosted, 1.0);
+        if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
+      }
+      const k = (targetOpen > jawOpen) ? ATTACK : (talkingNow ? RELEASE : RELEASE_SILENT);
+      jawOpen += (targetOpen - jawOpen) * k;
+
+      const clipAvailable = !!actionTalk;
+      const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
+
+      if (useClip) {
+        if (actionTalk) {
+          const tgtW = talkingNow ? 1.0 : 0.0;
+          const cur = actionTalk.getEffectiveWeight();
+          actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
+          actionTalk.timeScale = THREE.MathUtils.lerp(0.8, 1.6, clamp01(jawOpen));
+        }
+        if (actionMouth) actionMouth.setEffectiveWeight(0.0);
+      } else {
+        const mixerWeight = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
+        const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
+
+        if (actionMouth) {
+          const cur = actionMouth.getEffectiveWeight();
+          actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
+        }
+        if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
+
+        if (jawOpen >= 0.02) { applyMouth(clamp01(jawOpen * manualWeight)); }
+        else if (!talkingNow && mixerWeight === 0) { jawOpen = 0; resetMouthPose(); }
+
+        const smoothstep = (a, b, x) => { const tt = Math.min(1, Math.max(0, (x - a) / (b - a))); return tt * tt * (3 - 2 * tt); };
+        const sealK = 1.0 - smoothstep(1.08, 0.18, jawOpen);
+        applySeal(Math.min(1, Math.max(0, sealK)));
+      }
+
+      // Lengua sólo si no usamos clip de “talk” (o podrías sumarla también a clip si quisieras)
+      if (!useClip) applyTongue(t, clamp01(jawOpen));
+
+      if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
+      else { (ARM_L || []).forEach(n => restore(n)); (ARM_R || []).forEach(n => restore(n)); }
+
+      applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
+      applyEyesIdle();
+      applyHeadAndBodyIdle(t);
+
+      openTxt.textContent = jawOpen.toFixed(2);
+      lvlTxt.textContent = levelOut.toFixed(2);
+      lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
+      talkDot.classList.toggle('on', talkingNow);
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+
+    async function listMicsInit() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { } }
+    listMicsInit().finally(listMics);
+
+    // Primera llamada para encajar 4:3
+    fitCanvas43();
+  </script>
+</body>
+
+</html>
