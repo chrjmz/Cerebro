@@ -288,9 +288,9 @@
     };
 
     // Labio inferior baja menos + dientes acompañan
-    const LIP_DOWN_DROP = 0.15;
+    const LIP_DOWN_DROP = 0.0;
     const TEETH_FOLLOW = {
-      lowerDownY: 0.004,
+      lowerDownY: -0.604,
       lowerBackZ: 0.020,
       lowerRotDeg: 3.5,
       upperUpY: 0.0015,
@@ -299,7 +299,7 @@
 
     const JAW_TALK_LIFT = {
       dy: 4.2115,   // 1.5 mm hacia arriba (ajusta 0.0008–0.0025)
-      rxDeg: +2.0   // cierra ~2° (opcional; 0 para desactivar)
+      rxDeg: +10.0   // cierra ~2° (opcional; 0 para desactivar)
     };
 
     // Anti-twist suave en labio superior (opcional)
@@ -314,9 +314,9 @@
 
     // Solo afecta cuando está hablando
     const LIP_TALK_OFFSET = {
-      up: { x: 0.000, y: 0.3000, z: 0.000 },
+      up: { x: 0.000, y: 0.4500, z: 0.000 },
       down: {
-        x: 0.00, y: 0.4000, z: 0.000
+        x: 0.00, y: 0.5500, z: 0.000
       },
       cornersScale: 1.0
     };
