@@ -288,7 +288,7 @@
     };
 
     // Labio inferior baja menos + dientes acompañan
-    const LIP_DOWN_DROP = 1.15;
+    const LIP_DOWN_DROP = 0.15;
     const TEETH_FOLLOW = {
       lowerDownY: 0.004,
       lowerBackZ: 0.020,
@@ -298,7 +298,7 @@
     };
 
     const JAW_TALK_LIFT = {
-      dy: 5.9115,   // 1.5 mm hacia arriba (ajusta 0.0008–0.0025)
+      dy: 4.2115,   // 1.5 mm hacia arriba (ajusta 0.0008–0.0025)
       rxDeg: +2.0   // cierra ~2° (opcional; 0 para desactivar)
     };
 
@@ -314,12 +314,13 @@
 
     // Solo afecta cuando está hablando
     const LIP_TALK_OFFSET = {
-      up: { x: 0.000, y: -0.5000, z: 0.000 },
+      up: { x: 0.000, y: 0.3000, z: 0.000 },
       down: {
-        x: 0.00, y: 2.6000, z: 0.000
+        x: 0.00, y: 0.4000, z: 0.000
       },
       cornersScale: 1.0
     };
+    
 
     // ⬆️⬆️⬆️ Edita estos valores para “cuadrar” los labios
 
@@ -503,6 +504,10 @@
     let ARM_L = [], ARM_R = [];
     let TONGUE = [];
     let CHEEKS = [], EYELIDS = [], EYEBROWS = [], NOSE = null;
+
+    let prevTalking = false;
+let settleUntil = 0;          // ventana de “asentamiento” post-habla
+let hardSilentSince = performance.now();
 
     // ---------- UI ----------
     const statusEl = document.getElementById('status');
@@ -1407,107 +1412,136 @@
     let justStoppedAt = 0;
 
     function animate() {
-      requestAnimationFrame(animate);
-      const t = performance.now() * 0.001;
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const t = now * 0.001;
 
-      if (mixer && clock) mixer.update(clock.getDelta());
+  if (mixer && clock) mixer.update(clock.getDelta());
 
-      lockJawNode(CTRL_JAW);
-      lockJawNode(DEF_JAW);
+  // Estado de habla
+  const talkingNow = (forceTalking || agentTalking);
+  const talkingFromMic = agentTalking && !forceTalking;
 
-      const talkingNow = (forceTalking || agentTalking);
-      const talkingFromMic = agentTalking && !forceTalking;
+  // Flanco: acaba de dejar de hablar -> abre ventana de asentamiento
+  if (prevTalking && !talkingNow) {
+    settleUntil = now + 320;       // 320 ms de “colchón”
+  }
+  prevTalking = talkingNow;
 
-      if (!talkingNow && talkDot.classList.contains('on')) justStoppedAt = performance.now();
+  // Target de apertura desde volumen
+  const Lraw = levelOut;
+  let targetOpen = 0;
+  if (talkingNow) {
+    const lvl = Math.max(0, Lraw - OUT_GATE);
+    const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
+    const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
+    targetOpen = Math.min(boosted, 1.0);
+    if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
+  } else {
+    // contador de silencio “duro” (para kill-switch)
+    hardSilentSince = hardSilentSince || now;
+  }
 
-      const Lraw = levelOut;
-      let targetOpen = 0;
-      if (talkingNow) {
-        const lvl = Math.max(0, Lraw - OUT_GATE);
-        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
-        const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
-        targetOpen = Math.min(boosted, 1.0);
-        if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
-      }
+  // Envelope con cooldown post-habla
+  const isSettling = now < settleUntil;
+  let localRelease = talkingNow ? RELEASE : RELEASE_SILENT;
+  if (isSettling) localRelease = Math.min(0.96, localRelease + 0.20); // salida más suave
 
-      let localRelease = (talkingNow ? RELEASE : RELEASE_SILENT);
-      if (!talkingNow && (performance.now() - justStoppedAt) < 220) {
-        localRelease = Math.min(0.95, localRelease + 0.12);
-      }
+  const k = (targetOpen > jawOpen) ? ATTACK : localRelease;
+  jawOpen += (targetOpen - jawOpen) * k;
 
-      const k = (targetOpen > jawOpen) ? ATTACK : localRelease;
-      jawOpen += (targetOpen - jawOpen) * k;
+  // ¿Usamos clip o manual?
+  const clipAvailable = !!actionTalk;
+  const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
 
-      const clipAvailable = !!actionTalk;
-      const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
-
-      if (useClip) {
-        if (actionTalk) {
-          const tgtW = talkingNow ? 1.0 : 0.0;
-          const cur = actionTalk.getEffectiveWeight();
-          actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
-          actionTalk.timeScale = THREE.MathUtils.lerp(0.8, 1.6, clamp01(jawOpen));
-        }
-        if (actionMouth) actionMouth.setEffectiveWeight(0.0);
-      } else {
-        const mixerWeight = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
-        const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
-
-        if (actionMouth) {
-          const cur = actionMouth.getEffectiveWeight();
-          actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
-        }
-        if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
-
-        if (jawOpen >= 0.02) applyMouth(clamp01(jawOpen * manualWeight));
-        else if (!talkingNow && mixerWeight === 0) { jawOpen = 0; resetMouthPose(); }
-
-        const sealK = clamp01(1.0 - jawOpen * 1.4);
-        applySeal(sealK);
-
-        lockJawNode(CTRL_JAW);
-        lockJawNode(DEF_JAW);
-      }
-
-      applyTongue(t, clamp01(jawOpen));
-
-      if (talkingNow && jawOpen > 0) {/* gestos opcionales */ }
-      else { (ARM_L || []).forEach(n => restore(n)); (ARM_R || []).forEach(n => restore(n)); }
-
-      if (typeof applyTentacles === 'function') applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
-
-      applyEyesIdle();
-      applyHeadAndBodyIdle(t, talkingNow);
-
-      if (!talkingNow) dampNodesTowardRest(CHEEKS, CHEEK_SILENT_DAMP);
-
-      if (!talkingNow) {
-        const kSilent = 1 - Math.min(1, Math.max(0, (jawOpen - 0.05) / (0.22 - 0.05)));
-        if (kSilent > 0.001) {
-          const offsets = computeLipMicroOffsets(t, kSilent);
-          applyLipsMicroIdle(offsets);
-          applyTeethTongueMicroIdle(t, offsets);
-        }
-      }
-
-      if (talkingNow) {
-        pivot.position.x = PIVOT_BASE_POS.x;
-        pivot.position.z = PIVOT_BASE_POS.z;
-        if (ROOT) {
-          const rp = restP.get(ROOT);
-          if (rp) { ROOT.position.x = rp.x; ROOT.position.z = rp.z; }
-        }
-      }
-
-      openTxt.textContent = jawOpen.toFixed(2);
-      lvlTxt.textContent = levelOut.toFixed(2);
-      lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
-      talkDot.classList.toggle('on', talkingNow);
-
-      controls.update();
-      renderer.render(scene, camera);
+  if (useClip) {
+    if (actionTalk) {
+      const tgtW = talkingNow ? 1.0 : 0.0;
+      const cur = actionTalk.getEffectiveWeight();
+      actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
+      // acelera un pelín con apertura para que no “arrastre”
+      actionTalk.timeScale = THREE.MathUtils.lerp(0.85, 1.55, Math.min(1, Math.max(0, jawOpen)));
+      if (!talkingNow && isSettling) actionTalk.timeScale *= 1.05; // drena frames rápido
     }
-    requestAnimationFrame(animate);
+    if (actionMouth) actionMouth.setEffectiveWeight(0.0);
+  } else {
+    const mixerWeight = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
+    const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
+
+    if (actionMouth) {
+      const cur = actionMouth.getEffectiveWeight();
+      actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
+    }
+    if (mixerWeight > 0) applyMixerAdditives(Math.min(1, Math.max(0, jawOpen)));
+
+    if (jawOpen >= 0.02) {
+      applyMouth(Math.min(1, Math.max(0, jawOpen * manualWeight)));
+    } else if (!talkingNow && mixerWeight === 0) {
+      // kill-switch cuando realmente está cerrado
+      jawOpen = 0;
+      resetMouthPose();
+      if (actionTalk) { actionTalk.setEffectiveWeight(0); actionTalk.setEffectiveTimeScale(0); }
+    }
+
+    // Seal sin “latigazo”: curva suavizada
+    const smoothstep = (a, b, x) => { const tt = Math.min(1, Math.max(0, (x - a) / (b - a))); return tt * tt * (3 - 2 * tt); };
+    const sealK = 1.0 - smoothstep(1.05, 0.20, jawOpen);
+    applySeal(Math.min(1, Math.max(0, sealK)));
+  }
+
+  // Lengua siempre por apertura (con seguridad interna)
+  applyTongue(t, Math.min(1, Math.max(0, jawOpen)));
+
+  // Brazos/tentáculos con energía de habla
+  if (talkingNow && jawOpen > 0) { if (typeof applyTentacles === 'function') applyTentacles(t, Math.min(1, Math.max(0, jawOpen))); }
+  else {
+    (ARM_L || []).forEach(n => restore(n));
+    (ARM_R || []).forEach(n => restore(n));
+    if (typeof applyTentacles === 'function') applyTentacles(t, 0);
+  }
+
+  // Ojos/cabeza/idle
+  applyEyesIdle();
+  applyHeadAndBodyIdle(t, talkingNow);
+
+  // Cachetes amortiguados en silencio
+  if (!talkingNow) dampNodesTowardRest(CHEEKS, CHEEK_SILENT_DAMP);
+
+  // Micro-idle SOLO en silencio y fuera del cooldown (evita “temblor” post-habla)
+  if (!talkingNow && !isSettling) {
+    const kSilent = 1 - Math.min(1, Math.max(0, (jawOpen - 0.05) / (0.22 - 0.05)));
+    if (kSilent > 0.001) {
+      const offsets = computeLipMicroOffsets(t, kSilent);
+      applyLipsMicroIdle(offsets);
+      applyTeethTongueMicroIdle(t, offsets);
+    }
+  }
+
+  // Bloqueos de estabilidad SIEMPRE (evita drift lateral y torsiones)
+  lockJawNode(CTRL_JAW); lockJawNode(DEF_JAW);
+  (LIP_UP || []).forEach(lockLipNode);
+  (LIP_DOWN || []).forEach(lockLipNode);
+
+  // Recentrado de pivot/ROOT mientras habla (y también en la cola de asentamiento)
+  if (talkingNow || isSettling) {
+    pivot.position.x = PIVOT_BASE_POS.x;
+    pivot.position.z = PIVOT_BASE_POS.z;
+    if (ROOT) {
+      const rp = restP.get(ROOT);
+      if (rp) { ROOT.position.x = rp.x; ROOT.position.z = rp.z; }
+    }
+  }
+
+  // UI
+  openTxt.textContent = jawOpen.toFixed(2);
+  lvlTxt.textContent = levelOut.toFixed(2);
+  lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
+  talkDot.classList.toggle('on', talkingNow);
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
 
     async function listMicsInit() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { } }
     listMicsInit().finally(listMics);
