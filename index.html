@@ -1,39 +1,217 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <title>KRANG — clip lipsync + caja + puerta + dientes + lengua</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
-    :root { color-scheme: dark; }
-    html, body { margin: 0; height: 100dvh; background: #000; color: #eaeef5; font-family: system-ui, Segoe UI, Roboto, sans-serif; overflow: hidden; }
-    header { position: fixed; top: 10px; left: 20px; padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: color-mix(in srgb, #0b0f1a 60%, transparent); border: 1px solid #1f2840; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); backdrop-filter: blur(6px); z-index: 20; }
-    button { padding: 8px 12px; border-radius: 10px; border: 0; background: #2a60ff; color: #fff; cursor: pointer; font-size: 12px; }
-    button.secondary { background: #27314e; }
-    button[disabled] { opacity: .5; cursor: not-allowed; }
-    #status { margin-left: auto; opacity: .9; font-size: 12px; }
-    #stage { position: fixed; inset: 0; display: block; touch-action: none; background: transparent; }
-    #loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11,15,26,.9) 40%, #0b0f1a 70%); z-index: 10; flex-direction: column; gap: 12px; }
-    .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #2a60ff30; border-top-color: #2a60ff; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loader-text { font-size: 14px; color: #cfe0ff; opacity: .9 }
-    .hud { display: none; position: fixed; left: 10px; bottom: 10px; background: #0b0f1acc; border: 1px solid #1f2840; border-radius: 8px; padding: 8px 10px; font: 12px/1.2 system-ui; z-index: 30; }
-    .bar { width: 160px; height: 6px; background: #18203a; border-radius: 4px; overflow: hidden; }
-    .fill { height: 100%; width: 0%; background: #2a60ff; }
-    .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5566; }
-    .dot.on { background: #5aff7a; }
-    @media (max-width: 640px) { header { left: 8px; right: 8px; top: 8px; justify-content: space-between } }
-    canvas { pointer-events: none; }
+    :root {
+      color-scheme: dark;
+    }
 
-    details.ctrl { background: #0b0f1acc; border: 1px solid #1f2840; border-radius: 10px; padding: 6px 8px; color: #cfe0ff; }
-    details.ctrl summary { cursor: pointer; list-style: none; }
-    details.ctrl summary::-webkit-details-marker { display: none; }
-    .grid { display: grid; grid-template-columns: auto 140px 62px; gap: 6px 8px; align-items: center; margin-top: 6px; }
-    .grid label { font-size: 11px; opacity: .9; white-space: nowrap; }
-    .grid input[type="range"] { width: 140px; }
-    .grid input[type="number"] { width: 62px; background: #131c31; border: 1px solid #1f2840; color: #cfe0ff; border-radius: 6px; padding: 4px 6px; font-size: 12px; }
-    .split { display:flex; gap:8px; align-items:center; }
+    html,
+    body {
+      margin: 0;
+      height: 100dvh;
+      background: #000;
+      color: #eaeef5;
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    header {
+      position: fixed;
+      top: 10px;
+      left: 20px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: color-mix(in srgb, #0b0f1a 60%, transparent);
+      border: 1px solid #1f2840;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+      backdrop-filter: blur(6px);
+      z-index: 20;
+    }
+
+    button {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 0;
+      background: #2a60ff;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    button.secondary {
+      background: #27314e;
+    }
+
+    button[disabled] {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-left: auto;
+      opacity: .9;
+      font-size: 12px;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: block;
+      touch-action: none;
+      background: transparent;
+    }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11, 15, 26, .9) 40%, #0b0f1a 70%);
+      z-index: 10;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 4px solid #2a60ff30;
+      border-top-color: #2a60ff;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      font-size: 14px;
+      color: #cfe0ff;
+      opacity: .9
+    }
+
+    .hud {
+      display: none;
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      background: #0b0f1acc;
+      border: 1px solid #1f2840;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: 12px/1.2 system-ui;
+      z-index: 30;
+    }
+
+    .bar {
+      width: 160px;
+      height: 6px;
+      background: #18203a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0%;
+      background: #2a60ff;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff5566;
+    }
+
+    .dot.on {
+      background: #5aff7a;
+    }
+
+    @media (max-width: 640px) {
+      header {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        justify-content: space-between
+      }
+    }
+
+    canvas {
+      pointer-events: none;
+    }
+
+    details.ctrl {
+      background: #0b0f1acc;
+      border: 1px solid #1f2840;
+      border-radius: 10px;
+      padding: 6px 8px;
+      color: #cfe0ff;
+    }
+
+    details.ctrl summary {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    details.ctrl summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: auto 140px 62px;
+      gap: 6px 8px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .grid label {
+      font-size: 11px;
+      opacity: .9;
+      white-space: nowrap;
+    }
+
+    .grid input[type="range"] {
+      width: 140px;
+    }
+
+    .grid input[type="number"] {
+      width: 62px;
+      background: #131c31;
+      border: 1px solid #1f2840;
+      color: #cfe0ff;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+
+    .split {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
@@ -61,37 +239,47 @@
     </span>
 
     <!-- Modo fijo: clip -->
-    <button id="btnMode" class="secondary" disabled title="Modo fijo">Mode: clip</button>
+    <button id="btnMode" class="secondary" disabled title="Modo fijo" style="display: none;">Mode: clip</button>
 
-    <details class="ctrl" id="panelJaw">
+    <details class="ctrl" id="panelJaw" style="display: none;">
       <summary>⚙️ Mandíbula/Teeth</summary>
       <div class="grid" style="margin-top:6px;">
         <label>Max mouth deg</label>
-        <input id="sMaxDeg" type="range" min="8" max="40" step="1" value="22"><input id="nMaxDeg" type="number" step="1" value="22">
+        <input id="sMaxDeg" type="range" min="8" max="40" step="1" value="22"><input id="nMaxDeg" type="number" step="1"
+          value="22">
 
         <label>Lower lip drop (LIP_DOWN_DROP)</label>
-        <input id="sLipDownDrop" type="range" min="0" max="2" step="0.01" value="1.15"><input id="nLipDownDrop" type="number" step="0.01" value="1.15">
+        <input id="sLipDownDrop" type="range" min="0" max="2" step="0.01" value="1.15"><input id="nLipDownDrop"
+          type="number" step="0.01" value="1.15">
 
         <label>Jaw center bias X / rad</label>
-        <input id="sJawBias" type="range" min="-0.6" max="0.6" step="0.01" value="-0.15"><input id="nJawBias" type="number" step="0.01" value="-0.15">
+        <input id="sJawBias" type="range" min="-0.6" max="0.6" step="0.01" value="-0.15"><input id="nJawBias"
+          type="number" step="0.01" value="-0.15">
 
         <label>Hard lock XZ (jaw)</label>
-        <div class="split"><input id="chkLockXZ" type="checkbox" checked><span style="font-size:11px;opacity:.9">on</span></div><div></div>
+        <div class="split"><input id="chkLockXZ" type="checkbox" checked><span
+            style="font-size:11px;opacity:.9">on</span></div>
+        <div></div>
 
         <label>Teeth lower down Y (m)</label>
-        <input id="sTLdownY" type="range" min="-0.01" max="0.02" step="0.0005" value="0.004"><input id="nTLdownY" type="number" step="0.0005" value="0.004">
+        <input id="sTLdownY" type="range" min="-0.01" max="0.02" step="0.0005" value="0.004"><input id="nTLdownY"
+          type="number" step="0.0005" value="0.004">
 
         <label>Teeth lower back Z (m)</label>
-        <input id="sTLbackZ" type="range" min="0" max="0.05" step="0.0005" value="0.020"><input id="nTLbackZ" type="number" step="0.0005" value="0.020">
+        <input id="sTLbackZ" type="range" min="0" max="0.05" step="0.0005" value="0.020"><input id="nTLbackZ"
+          type="number" step="0.0005" value="0.020">
 
         <label>Teeth lower rot (deg)</label>
-        <input id="sTLrot" type="range" min="-10" max="15" step="0.1" value="3.5"><input id="nTLrot" type="number" step="0.1" value="3.5">
+        <input id="sTLrot" type="range" min="-10" max="15" step="0.1" value="3.5"><input id="nTLrot" type="number"
+          step="0.1" value="3.5">
 
         <label>Teeth upper up Y (m)</label>
-        <input id="sTUupY" type="range" min="-0.005" max="0.01" step="0.0005" value="0.0015"><input id="nTUupY" type="number" step="0.0005" value="0.0015">
+        <input id="sTUupY" type="range" min="-0.005" max="0.01" step="0.0005" value="0.0015"><input id="nTUupY"
+          type="number" step="0.0005" value="0.0015">
 
         <label>Teeth upper rot (deg)</label>
-        <input id="sTUrot" type="range" min="-5" max="8" step="0.1" value="1.2"><input id="nTUrot" type="number" step="0.1" value="1.2">
+        <input id="sTUrot" type="range" min="-5" max="8" step="0.1" value="1.2"><input id="nTUrot" type="number"
+          step="0.1" value="1.2">
       </div>
     </details>
 
@@ -107,10 +295,14 @@
 
   <div class="hud" id="hud" aria-hidden="true" style="display: none !important;">
     <div>levelOut: <span id="lvlTxt">0.00</span></div>
-    <div class="bar"><div id="lvlBar" class="fill"></div></div>
+    <div class="bar">
+      <div id="lvlBar" class="fill"></div>
+    </div>
     <div class="row">
-      <div>talking:</div><div id="talkDot" class="dot"></div>
-      <div style="margin-left:10px">open:</div><div id="openTxt">0.00</div>
+      <div>talking:</div>
+      <div id="talkDot" class="dot"></div>
+      <div style="margin-left:10px">open:</div>
+      <div id="openTxt">0.00</div>
     </div>
   </div>
 
@@ -205,20 +397,20 @@
       lockRot: true,
       lockPosZ: true,
       startAtOpen: 0.0,
-      endAtOpen: 0.30,   // se suelta gradualmente al abrir
+      endAtOpen: 0.00,   // se suelta gradualmente al abrir
       zMax: 0.004        // máximo desplazamiento Z desde la pose de reposo
     };
 
     // (d) Clamp para que los labios NO salgan hacia afuera (X/Z)
     const LIP_OUTWARD_CLAMP = {
       enabled: true,
-      up:   { maxDX: 0.006, maxDZ: 0.004 }, // superior
+      up: { maxDX: 0.006, maxDZ: 0.004 }, // superior
       down: { maxDX: 0.005, maxDZ: 0.004 }  // inferior
     };
 
     // (e) Offsets finos “pose de silencio”
     const SILENT_BIAS = {
-      up:   { x: -0.006, y:  0.001, z: 0.000, zDeg:  2.0 },
+      up: { x: -0.006, y: 0.001, z: 0.000, zDeg: 2.0 },
       down: { x: -0.005, y: -0.002, z: 0.000, zDeg: -1.5 }
     };
 
@@ -226,7 +418,7 @@
     let LIP_DOWN_DROP = 1.15;
     let TEETH_FOLLOW = {
       lowerDownY: 0.004,
-      lowerBackZ: 0.020,
+      lowerBackZ: 0.920,
       lowerRotDeg: 3.5,
       upperUpY: 0.0015,
       upperRotDeg: 1.2
@@ -240,20 +432,21 @@
 
     // Base upper lip local correction
     const LIP_UP_LOCAL_BIAS = { x: -0.012, y: 0.000, z: 0.000 };
-    const LIP_UP_LOCAL_ROT  = { xDeg: 0.0, yDeg: 0.0, zDeg: 5.0 };
+    const LIP_UP_LOCAL_ROT = { xDeg: 0.0, yDeg: 0.0, zDeg: 5.0 };
     const LIP_UP_BASE = {
       center: { x: 99.00, y: 0.00, z: 0.00, xDeg: 0.0, yDeg: 0.0, zDeg: -66.0 },
-      left:   { x: 0.00,  y: 0.99, z: 0.00, xDeg: 0.0, yDeg: 0.0, zDeg: -6.0 },
-      right:  { x: 0.00,  y: 0.00, z: 0.00, xDeg: 0.0, yDeg: 0.0, zDeg: -6.0 }
+      left: { x: 0.00, y: 0.99, z: 0.00, xDeg: 0.0, yDeg: 0.0, zDeg: -6.0 },
+      right: { x: 0.00, y: 0.00, z: 0.00, xDeg: 0.0, yDeg: 0.0, zDeg: -6.0 }
     };
 
     const UPPER_LIP_SIDE = {
       enableRuntimeFix: true,
       lockAxes: { x: true, y: false, z: false },
-      lockRot:  { yaw: true, roll: true },
+      lockRot: { yaw: true, roll: true },
       offsetX: -0.012,
       followOpenScale: 1.0
     };
+
 
     // ---------- RENDERER / ESCENA ----------
     const canvas = document.getElementById('stage');
@@ -292,7 +485,7 @@
       camera.updateProjectionMatrix();
     }
     canvas.addEventListener('wheel', e => e.preventDefault(), { passive: false });
-    ['gesturestart','gesturechange','gestureend'].forEach(ev => window.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => window.addEventListener(ev, e => e.preventDefault(), { passive: false }));
 
     let avatar = null;
 
@@ -313,16 +506,16 @@
 
     function disableFrustumCulling(root) { root.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); }
     const findRegex = (root, regex) => { const found = []; root.traverse(o => { if (regex.test(o.name)) found.push(o); }); return found; };
-    function findFirst(root, names) { for (const n of names) { let o=null; root.traverse(k=>{ if(!o && k.name===n) o=k;}); if(o) return o; } return null; }
+    function findFirst(root, names) { for (const n of names) { let o = null; root.traverse(k => { if (!o && k.name === n) o = k; }); if (o) return o; } return null; }
     function findFirstByHints(root, hints) { const rx = new RegExp(hints.map(h => `(${h})`).join('|'), 'i'); const found = []; root.traverse(o => { if (rx.test(o.name)) found.push(o); }); return found[0] || null; }
 
     const restQ = new Map(), restP = new Map();
     const saveRest = o => { if (!o) return; if (!restQ.has(o)) restQ.set(o, o.quaternion.clone()); if (!restP.has(o)) restP.set(o, o.position.clone()); };
-    const restore  = o => { if (!o) return; const q = restQ.get(o), p = restP.get(o); if (q) o.quaternion.copy(q); if (p) o.position.copy(p); };
-    const rot      = (n, ax, r) => { if (!n) return; restore(n); const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
-    const mov      = (n, dx=0, dy=0, dz=0) => { if (!n) return; restore(n); n.position.x+=dx; n.position.y+=dy; n.position.z+=dz; };
-    const addRot   = (n, ax, r) => { if (!n||r===0) return; const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
-    const addMov   = (n, dx=0, dy=0, dz=0) => { if (!n) return; n.position.x+=dx; n.position.y+=dy; n.position.z+=dz; };
+    const restore = o => { if (!o) return; const q = restQ.get(o), p = restP.get(o); if (q) o.quaternion.copy(q); if (p) o.position.copy(p); };
+    const rot = (n, ax, r) => { if (!n) return; restore(n); const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
+    const mov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; restore(n); n.position.x += dx; n.position.y += dy; n.position.z += dz; };
+    const addRot = (n, ax, r) => { if (!n || r === 0) return; const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
+    const addMov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; n.position.x += dx; n.position.y += dy; n.position.z += dz; };
 
     function addLocalMove(n, lx = 0, ly = 0, lz = 0) {
       if (!n) return;
@@ -481,7 +674,7 @@
         const nodeName = tr.name.split('.')[0];
         if (!names.has(nodeName)) return;
         if (rxPos.test(tr.name) && tr.values && tr.values.length % 3 === 0) {
-          for (let i = 0; i < tr.values.length; i += 3) tr.values[i] = (i%3===0) ? 0 : tr.values[i];
+          for (let i = 0; i < tr.values.length; i += 3) tr.values[i] = (i % 3 === 0) ? 0 : tr.values[i];
         }
       });
       return clip;
@@ -537,7 +730,7 @@
       const ROOT_HINT = /\bKRANG_RIG(\.?\d+)?\b/i;
       ROOT = findFirst(avatar, ['ROOT']) || findRegex(avatar, ROOT_HINT)[0] || avatar;
 
-      DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP','DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
+      DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP', 'DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
       HEAD_DOWN = findFirst(avatar, ['DEF_HEAD_DOWN']) || findRegex(avatar, /DEF[_-]?HEAD[_-]?DOWN/i)[0] || null;
 
       CTRL_JAW = findFirst(avatar, ['CTRL_JAW']) || null;
@@ -556,16 +749,16 @@
       LIP_UP = lipsAnyUpper; LIP_DOWN = lipsAnyLower;
 
       const isCorner = n => /\.L\b|_L\b|\bL\b|\.R\b|_R\b|\bR\b|CORNER/i.test(n.name);
-      LIP_UP_CORNERS   = (LIP_UP || []).filter(isCorner);
-      LIP_UP_CENTER    = (LIP_UP || []).filter(n => !isCorner(n));
+      LIP_UP_CORNERS = (LIP_UP || []).filter(isCorner);
+      LIP_UP_CENTER = (LIP_UP || []).filter(n => !isCorner(n));
       LIP_DOWN_CORNERS = (LIP_DOWN || []).filter(isCorner);
-      LIP_DOWN_CENTER  = (LIP_DOWN || []).filter(n => !isCorner(n));
+      LIP_DOWN_CENTER = (LIP_DOWN || []).filter(n => !isCorner(n));
 
       OJO_L = findFirst(avatar, ['DEF_EYE.L']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)L\b/i)[0];
       OJO_R = findFirst(avatar, ['DEF_EYE.R']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)R\b/i)[0];
 
       const tongueRaw = findRegex(avatar, /DEF[_-]?TONGUE[_-]?(\d+)/i);
-      TONGUE = tongueRaw.slice().sort((a, b) => (parseInt((a.name.match(/(\d+)/)||[])[1]||'0',10) - parseInt((b.name.match(/(\d+)/)||[])[1]||'0',10)));
+      TONGUE = tongueRaw.slice().sort((a, b) => (parseInt((a.name.match(/(\d+)/) || [])[1] || '0', 10) - parseInt((b.name.match(/(\d+)/) || [])[1] || '0', 10)));
       if (!TONGUE.length) {
         const tAny = findRegex(avatar, /(tongue|lengua)/i);
         if (tAny.length) TONGUE = [tAny[0]];
@@ -605,7 +798,7 @@
       if (teethTex) applyTeethTexture(avatar, teethTex);
 
       // CAJA
-      addContainerBoxFor(avatar).catch(() => {});
+      addContainerBoxFor(avatar).catch(() => { });
 
       document.getElementById('loader').style.display = 'none';
       document.getElementById('hud').style.display = 'none';
@@ -704,7 +897,7 @@
       const center = box.getCenter(new THREE.Vector3());
 
       const shadowMatFloor = new THREE.ShadowMaterial({ opacity: 0.35 }); shadowMatFloor.depthWrite = false;
-      const shadowMatWall  = new THREE.ShadowMaterial({ opacity: 0.18 }); shadowMatWall.depthWrite = false;
+      const shadowMatWall = new THREE.ShadowMaterial({ opacity: 0.18 }); shadowMatWall.depthWrite = false;
 
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(size.x * 2.2, size.z * 2.2), shadowMatFloor);
       floor.rotation.x = -Math.PI * 0.5;
@@ -912,7 +1105,7 @@
       camera.position.copy(target).add(dir);
 
       camera.near = Math.max(0.01, (sphere.radius) / 200);
-      camera.far  = Math.max(1000, sphere.radius * 40);
+      camera.far = Math.max(1000, sphere.radius * 40);
       camera.updateProjectionMatrix();
 
       controls.target.copy(target); controls.update();
@@ -924,17 +1117,28 @@
 
     async function calibrateMicGain(ms = 700) { /* ya no necesitamos calibrar exacto para clip, pero mantenemos lectura de volumen */ }
 
-    async function listMics() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {} const devices = await navigator.mediaDevices.enumerateDevices(); const mics = devices.filter(d => d.kind === 'audioinput'); micSelect.innerHTML = ''; for (const it of mics) { const opt = document.createElement('option'); opt.value = it.deviceId; opt.textContent = it.label || `Mic (${it.deviceId.slice(0, 6)}…)`; micSelect.appendChild(opt); } }
+    async function listMics() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { } const devices = await navigator.mediaDevices.enumerateDevices(); const mics = devices.filter(d => d.kind === 'audioinput'); micSelect.innerHTML = ''; for (const it of mics) { const opt = document.createElement('option'); opt.value = it.deviceId; opt.textContent = it.label || `Mic (${it.deviceId.slice(0, 6)}…)`; micSelect.appendChild(opt); } }
     listMics(); navigator.mediaDevices.addEventListener?.('devicechange', listMics);
 
+    // Antes:
+    // const r = await fetch(`${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`, { credentials: 'omit' });
+
+    // Ahora (ajusta la ruta según dónde subas el archivo):
+    const TOKEN_URL = `./eleven-webrtc-token.php`;
     async function getWebRTCToken() {
-      const r = await fetch(`${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`, { credentials: 'omit' });
-      if (!r.ok) throw new Error('Could not obtain WebRTC token'); const { token } = await r.json(); return token;
+      const r = await fetch(`${TOKEN_URL}?agent_id=${encodeURIComponent(AGENT_ID)}`, {
+        method: 'GET',
+        credentials: 'omit'
+      });
+      if (!r.ok) throw new Error('Could not obtain WebRTC token');
+      const { token } = await r.json();
+      return token;
     }
+
 
     const OUT_GATE = 0.02, OUT_GAIN = 4.2, OUT_GAMMA = 0.75;
     const ATTACK = 0.85, RELEASE = 0.28;
-    let   MAX_MOUTH_DEG = 22;
+    let MAX_MOUTH_DEG = 22;
     const THRESH_ON = 0.06, THRESH_OFF = 0.03, HOLD_ON_MS = 80, HOLD_OFF_MS = 150;
 
     let agentTalking = false; let aboveSince = 0, belowSince = 0;
@@ -971,8 +1175,8 @@
               lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
               talkDot.classList.toggle('on', agentTalking);
             }
-          } catch {}
-        }, 60);
+          } catch { }
+        }, 0);
 
         setUIConnected(true);
         calibrateMicGain();
@@ -982,7 +1186,7 @@
     };
 
     btnDisconnect.onclick = async () => {
-      try { if (conversation) await conversation.endSession(); } catch {}
+      try { if (conversation) await conversation.endSession(); } catch { }
       conversation = null;
       if (volPoller) { clearInterval(volPoller); volPoller = null; }
       levelOut = 0; agentTalking = false; aboveSince = 0; belowSince = 0;
@@ -1048,7 +1252,7 @@
     function limitRotationPitchOnly(node, restQuat) {
       if (!node || !restQuat) return;
       const qRest = restQuat;
-      const qCur  = node.quaternion.clone();
+      const qCur = node.quaternion.clone();
       const qDelta = qRest.clone().invert().multiply(qCur);
       theE.setFromQuaternion(qDelta, 'XYZ');
       theE.y = 0; theE.z = 0;
@@ -1082,7 +1286,7 @@
       const rx = THREE.MathUtils.degToRad(LIP_CONVERGE.rotDeg || 0) * k;
 
       (LIP_DOWN || []).forEach(n => addMov(n, 0, ly, 0));
-      (LIP_UP || []).forEach(n => { addMov(n, 0, uy, 0); addRot(n, new THREE.Vector3(1,0,0), rx*0.35); });
+      (LIP_UP || []).forEach(n => { addMov(n, 0, uy, 0); addRot(n, new THREE.Vector3(1, 0, 0), rx * 0.35); });
     }
 
     function enforceLowerLipStart(open01) {
@@ -1189,7 +1393,7 @@
         if (bTeeth) y = (y == null) ? bTeeth.box.min.y : Math.min(y, bTeeth.box.min.y);
         const bJaw = DEF_JAW ? computeRobustBounds(DEF_JAW) : null;
         if (bJaw) y = (y == null) ? bJaw.box.min.y : Math.min(y, bJaw.box.min.y);
-      } catch {}
+      } catch { }
       return (y == null) ? 0 : y;
     }
     function applyTongue(t, open) {
@@ -1198,8 +1402,8 @@
 
       const k = Math.min(1, Math.max(0, (open - TONGUE_CFG.MIN_OPEN) / (1 - TONGUE_CFG.MIN_OPEN)));
       const baseCurl = THREE.MathUtils.degToRad(TONGUE_CFG.CURL_DEG) * k;
-      const wagAmp   = THREE.MathUtils.degToRad(TONGUE_CFG.WAG_DEG) * k;
-      const wagSpd   = TONGUE_CFG.WAG_SPD;
+      const wagAmp = THREE.MathUtils.degToRad(TONGUE_CFG.WAG_DEG) * k;
+      const wagSpd = TONGUE_CFG.WAG_SPD;
 
       const parts = TONGUE;
       const L = parts.length;
@@ -1208,13 +1412,13 @@
         restore(n);
         const fall = (L > 1) ? (1 - i * 0.18) : 1.0;
         const curl = baseCurl * fall;
-        const wag  = Math.sin(t * wagSpd + i * 0.7) * wagAmp * fall;
+        const wag = Math.sin(t * wagSpd + i * 0.7) * wagAmp * fall;
 
         const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -curl);
-        const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0),  wag);
+        const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), wag);
         n.quaternion.multiply(qx).multiply(qy).normalize();
 
-        const up  = (TONGUE_CFG.UP_OFFSET * k * fall);
+        const up = (TONGUE_CFG.UP_OFFSET * k * fall);
         const fwd = (TONGUE_CFG.ALLOW_FORWARD ? Math.min(TONGUE_CFG.MAX_FORWARD, 0.006 * k * fall) : 0);
         addMov(n, 0, up, fwd);
       });
@@ -1314,8 +1518,8 @@
 
       // UI
       openTxt.textContent = jawOpen.toFixed(2);
-      lvlTxt.textContent  = levelOut.toFixed(2);
-      lvlBar.style.width  = Math.min(100, levelOut * 100) + '%';
+      lvlTxt.textContent = levelOut.toFixed(2);
+      lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
       talkDot.classList.toggle('on', talkingNow);
 
       controls.update();
@@ -1324,9 +1528,10 @@
     requestAnimationFrame(animate);
 
     // --- OTHERS ---
-    async function listMicsInit() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {} }
+    async function listMicsInit() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { } }
     listMicsInit().finally(listMics);
     fitCanvas43();
   </script>
 </body>
+
 </html>
