@@ -111,7 +111,7 @@
 
     // === PUERTA ===
     const DOOR_HINTS = ['Puerta', 'PUERTA', 'Door', 'DOOR'];
-    const DOOR_ALIGN = 'none';
+    const DOOR_ALIGN = 'none'; // 'none' | 'center' | 'bottom'
     const DOOR_OFFSET_MODE = 'ratio';
     const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 };
 
@@ -139,8 +139,8 @@
     };
 
     // === Ajustes pedidos ===
-    const LIGHT_SCALE = 0.60;        // -25% intensidad
-    const CHEEK_SILENT_DAMP = 0.90;  // -80% movimiento cachetes en silencio
+    const LIGHT_SCALE = 0.60;
+    const CHEEK_SILENT_DAMP = 0.90;
 
     // Animación cabeza (idle)
     const HEAD_IDLE = {
@@ -167,7 +167,7 @@
     };
 
     // --- NUEVO: labio inferior baja menos y dientes siguen
-    const LIP_DOWN_DROP = 1.15; // (antes ~1.85)
+    const LIP_DOWN_DROP = 1.15;
     const TEETH_FOLLOW = {
       lowerDownY: 0.004,
       lowerBackZ: 0.020,
@@ -176,13 +176,12 @@
       upperRotDeg: 1.2
     };
 
-    // --- Mandíbula: corrección lateral para centrar eje (valor negativo = mueve a la IZQUIERDA)
-const JAW_CENTER = {
-  biasXPerRad: -0.910, // desplazamiento en X por radian de apertura (prueba -0.006 a -0.018)
-  alsoTeethAndLowerLip: true, // que acompañen dientes inferiores y labio inferior
-  hardLockXZ: true // bloquea cualquier deriva X/Z inesperada al final del frame
-};
-
+    // --- Mandíbula: corrección lateral para centrar eje (valor negativo = IZQUIERDA)
+    const JAW_CENTER = {
+      biasXPerRad: -0.520,   // <<< FIX: fino; ajusta si hace falta
+      alsoTeethAndLowerLip: true,
+      hardLockXZ: true       // <<< FIX: lock sólo Z
+    };
 
     // ---------- ESCENA ----------
     const canvas = document.getElementById('stage');
@@ -242,41 +241,34 @@ const JAW_CENTER = {
     // ---------- HELPERS ----------
 
     function jawRestPos(n) {
-  return restP.get(n) || new THREE.Vector3(0, 0, 0);
-}
+      return restP.get(n) || new THREE.Vector3(0, 0, 0);
+    }
 
-// Compensa el desvío lateral calculando un delta en X según el ángulo de apertura (en radianes)
-// Compensación lateral en función del ángulo (radianes)
-// valor negativo empuja a la IZQUIERDA
-function applyJawCenterComp(openRad) {
-  const dx = (JAW_CENTER.biasXPerRad || 0) * openRad; // +derecha / -izquierda
+    // <<< FIX: corrección lateral sobre DEF_JAW (y labio inferior si quieres)
+    function applyJawCenterComp(openRad) {
+      const dx = (JAW_CENTER.biasXPerRad || 0) * openRad; // +derecha / -izquierda
 
-  // La mandíbula real es DEF_JAW (no hay CTRL_JAW)
-  if (DEF_JAW) {
-    const base = restP.get(DEF_JAW) || new THREE.Vector3();
-    DEF_JAW.position.x = base.x + dx;
-  }
+      if (DEF_JAW) {
+        const base = restP.get(DEF_JAW) || new THREE.Vector3();
+        DEF_JAW.position.x = base.x + dx;
+      }
 
-  // Los dientes inferiores cuelgan de DEF_JAW, así que no hace falta moverlos.
-  // Si quieres acompañar el labio inferior visualmente, síguelos aquí:
-  if (JAW_CENTER.alsoTeethAndLowerLip) {
-    (LIP_DOWN || []).forEach(n => {
-      const base = restP.get(n) || new THREE.Vector3();
-      n.position.x = base.x + dx;
-    });
-  }
-}
+      if (JAW_CENTER.alsoTeethAndLowerLip) {
+        (LIP_DOWN || []).forEach(n => {
+          const base = restP.get(n) || new THREE.Vector3();
+          n.position.x = base.x + dx;
+        });
+      }
+    }
 
-// Bloquea cualquier deriva X/Z inesperada (por acumulaciones numéricas o tracks del mixer)
-function hardLockJawXZ() {
-  const lockNode = DEF_JAW;
-  if (!lockNode) return;
-  const base = restP.get(lockNode) || new THREE.Vector3();
-  // Bloquea Z para evitar deriva hacia delante/atrás, pero respeta la X corregida
-  lockNode.position.z = base.z;
-  // NO tocar X aquí
-}
-
+    // <<< FIX: no resetea X, sólo Z (para no matar la corrección)
+    function hardLockJawXZ() {
+      const lockNode = DEF_JAW;
+      if (!lockNode) return;
+      const base = restP.get(lockNode) || new THREE.Vector3();
+      lockNode.position.z = base.z;
+      // NO tocar X aquí
+    }
 
     const clamp01 = x => Math.min(1, Math.max(0, x));
     function disableFrustumCulling(root) { root.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); }
@@ -532,6 +524,7 @@ function hardLockJawXZ() {
 
       if (teethTex) applyTeethTexture(avatar, teethTex);
 
+      // <<< CAJA RESTAURADA
       addContainerBoxFor(avatar).catch(() => { });
 
       document.getElementById('loader').style.display = 'none';
@@ -650,7 +643,7 @@ function hardLockJawXZ() {
       const rightWall = leftWall.clone(); rightWall.position.x = box.max.x + size.x * 0.35; scene.add(rightWall);
     }
 
-    // === CAJA ===
+    // === CAJA === (RESTORED COMPLETO)
     function setBoxRotation({ x = 0, y = 0, z = 0, degrees = true } = {}) {
       if (!containerBoxPivot) return;
       if (degrees) {
@@ -977,36 +970,33 @@ function hardLockJawXZ() {
 
     // Labios + dientes sincronizados y labio inferior reducido
     function applyMouth(open) {
-  const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
+      const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
 
-  // Mandíbula / control (solo eje X)
-  if (CTRL_MOUTH) rot(CTRL_MOUTH, new THREE.Vector3(1, 0, 0), -ang);
-  if (CTRL_JAW)   rot(CTRL_JAW,   new THREE.Vector3(1, 0, 0), -ang * 0.85);
-  if (DEF_JAW)    rot(DEF_JAW,    new THREE.Vector3(1, 0, 0), -ang * 0.65);
+      // Mandíbula / control (solo eje X)
+      if (CTRL_MOUTH) rot(CTRL_MOUTH, new THREE.Vector3(1, 0, 0), -ang);
+      if (CTRL_JAW)   rot(CTRL_JAW,   new THREE.Vector3(1, 0, 0), -ang * 0.85);
+      if (DEF_JAW)    rot(DEF_JAW,    new THREE.Vector3(1, 0, 0), -ang * 0.65);
 
-  // Dientes inferiores: acompañan (sin X)
-  if (TEETH_LOWER) {
-    restore(TEETH_LOWER);
-    addMov(TEETH_LOWER, 0, -TEETH_FOLLOW.lowerDownY * open, -TEETH_FOLLOW.lowerBackZ * open);
-    addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), -THREE.MathUtils.degToRad(TEETH_FOLLOW.lowerRotDeg) * open);
-  }
-  // Dientes superiores: micro gesto
-  if (TEETH_UPPER) {
-    restore(TEETH_UPPER);
-    addMov(TEETH_UPPER, 0, +TEETH_FOLLOW.upperUpY * open, 0);
-    addRot(TEETH_UPPER, new THREE.Vector3(1, 0, 0), +THREE.MathUtils.degToRad(TEETH_FOLLOW.upperRotDeg) * open);
-  }
+      // Dientes inferiores: acompañan (sin X)
+      if (TEETH_LOWER) {
+        restore(TEETH_LOWER);
+        addMov(TEETH_LOWER, 0, -TEETH_FOLLOW.lowerDownY * open, -TEETH_FOLLOW.lowerBackZ * open);
+        addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), -THREE.MathUtils.degToRad(TEETH_FOLLOW.lowerRotDeg) * open);
+      }
+      // Dientes superiores: micro gesto
+      if (TEETH_UPPER) {
+        restore(TEETH_UPPER);
+        addMov(TEETH_UPPER, 0, +TEETH_FOLLOW.upperUpY * open, 0);
+        addRot(TEETH_UPPER, new THREE.Vector3(1, 0, 0), +THREE.MathUtils.degToRad(TEETH_FOLLOW.upperRotDeg) * open);
+      }
 
-  // Labios: arriba/abajo (sin X para evitar tirones laterales)
-  const upDy = -2.45 * open, upRx = +ang * 0.14;
-  const dnDy = -LIP_DOWN_DROP * open, dnRx = -ang * 0.20;
+      // Labios: arriba/abajo (sin X para evitar tirones laterales)
+      const upDy = -2.45 * open, upRx = +ang * 0.14;
+      const dnDy = -LIP_DOWN_DROP * open, dnRx = -ang * 0.20;
 
-  (LIP_UP || []).forEach(n => { mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1, 0, 0), upRx); });
-  (LIP_DOWN || []).forEach(n => { mov(n, 0, dnDy, 0); rot(n, new THREE.Vector3(1, 0, 0), dnRx); });
-
-  // Compensación lateral para centrar eje de mandíbula (usa JAW_CENTER.biasXPerRad)
-  applyJawCenterComp(ang);
-}
+      (LIP_UP || []).forEach(n => { mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1, 0, 0), upRx); });
+      (LIP_DOWN || []).forEach(n => { mov(n, 0, dnDy, 0); rot(n, new THREE.Vector3(1, 0, 0), dnRx); });
+    }
 
     function applySeal(k) {
       if (!SEAL.enabled || k <= 0) return;
@@ -1165,7 +1155,6 @@ function hardLockJawXZ() {
       }
 
       if (ROOT) {
-        // no sway lateral de cuerpo si no lo quieres
         restore(ROOT);
         if (ENABLE_IDLE_SWAY) {
           const sway = Math.sin(t * 0.9) * 0.03;
@@ -1248,11 +1237,6 @@ function hardLockJawXZ() {
       const talkingNow = (forceTalking || agentTalking);
       const talkingFromMic = agentTalking && !forceTalking;
 
-      // Detecta cambio de hablar->silencio
-      if (!talkingNow && (aboveSince === 0 && belowSince !== 0)) {
-        // nada
-      }
-      // Cuando pasa de hablar a callar
       if (!talkingNow && talkDot.classList.contains('on')) {
         justStoppedAt = performance.now();
       }
@@ -1268,11 +1252,6 @@ function hardLockJawXZ() {
       }
 
       if (JAW_CENTER.hardLockXZ) hardLockJawXZ();
-
-      openTxt.textContent = jawOpen.toFixed(2);
-  lvlTxt.textContent = levelOut.toFixed(2);
-  lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
-  talkDot.classList.toggle('on', talkingNow);
 
       // *Salida suave*: si acaba de terminar, sube RELEASE momentáneamente
       let localRelease = (talkingNow ? RELEASE : RELEASE_SILENT);
@@ -1336,9 +1315,15 @@ function hardLockJawXZ() {
         }
       }
 
-      // <<< FIX: Bloqueo anti-deriva lateral durante habla (mantener centro)
+      // <<< FIX: compensación lateral SIEMPRE (use clip o manual)
+      const openRad = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * clamp01(jawOpen);
+      applyJawCenterComp(openRad);
+
+      // <<< FIX: lock al final del frame (sólo Z), para no pisar la X corregida
+      if (JAW_CENTER.hardLockXZ) hardLockJawXZ();
+
+      // Anti-deriva global mientras habla
       if (talkingNow) {
-        // Fijo pivot y ROOT en su X/Z base
         pivot.position.x = PIVOT_BASE_POS.x;
         pivot.position.z = PIVOT_BASE_POS.z;
         if (ROOT) {
