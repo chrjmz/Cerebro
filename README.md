@@ -1,144 +1,159 @@
-# Cerebro# Avatar 3D + ElevenLabs — README
+# Cerebro — 3D Avatar + ElevenLabs (WebRTC) · Avatar 3D + ElevenLabs (WebRTC)
 
-Proyecto de prueba para cargar un **avatar FBX** en Three.js, encuadrarlo automáticamente en pantalla y animar **labios y cabeza** con la voz del agente de ElevenLabs (WebRTC). Incluye dos variantes:
+> EN/ES bilingual README. Scroll for Spanish ↓
 
-* `index.html` → versión “lista para demo” con *loader*, **half-duplex** (el micrófono se silencia cuando habla el agente) y **solo la voz del agente** mueve la cabeza y abre la boca.&#x20;
-* `Untitled-1.html` → versión “tuneable” con selectores de **morph** y **hueso de mandíbula**, además de *sliders* para ajustar el lipsync en tiempo real.&#x20;
+## Table of Contents · Tabla de contenido
+- [Overview (EN)](#overview-en)
+- [Features (EN)](#features-en)
+- [Project Structure (EN)](#project-structure-en)
+- [Getting Started (EN)](#getting-started-en)
+- [Key Configuration (EN)](#key-configuration-en)
+- [WebRTC Token (EN)](#webrtc-token-en)
+- [Tips (EN)](#tips-en)
+- [License / Art (EN)](#license--art-en)
+- [Roadmap (EN)](#roadmap-en)
+- [Credits (EN)](#credits-en)
+- [Resumen (ES)](#resumen-es)
+- [Características (ES)](#características-es)
+- [Estructura (ES)](#estructura-es)
+- [Puesta en marcha (ES)](#puesta-en-marcha-es)
+- [Configuración clave (ES)](#configuración-clave-es)
+- [Token WebRTC (ES)](#token-webrtc-es)
+- [Consejos (ES)](#consejos-es)
+- [Licencia / Arte (ES)](#licencia--arte-es)
+- [Roadmap (ES)](#roadmap-es)
+- [Créditos (ES)](#créditos-es)
 
 ---
 
-## 1) Estructura de carpetas
+## Overview (EN)
+Cerebro is a **3D avatar** demo built with Three.js featuring **clip‑based lipsync** and jaw/teeth controls driven by an **ElevenLabs agent** over WebRTC. It includes **4:3 auto‑framing**, cinematic lighting, a **container box** (GLB) with a “door”, and tuning parameters for jaw/teeth.
 
+> This version runs with a primary **GLB** avatar and a **GLB** box; lipsync is **clip‑based** (not the user mic) and speech detection is tied to the agent’s **output audio**.
+
+## Features (EN)
+- Loads `exp3test.glb` (avatar) and `caja.glb` (box) with optional textures.
+- **4:3 auto‑framing**, floor/wall shadow composition.
+- **Cinematic lights** with soft shadows.
+- **Clip‑based lipsync** with lip converge controls and **teeth follow/lock**.
+- Hidden config panel for mouth range, lower‑lip falloff, jaw lateral bias, XZ hard‑lock.
+- **ElevenLabs WebRTC** via backend token (`eleven-webrtc-token.php`).
+
+## Project Structure (EN)
 ```
-/ (raíz del proyecto)
-├─ index.html                 # Demo: half-duplex + auto-frame + loader
-├─ Untitled-1.html            # Demo: panel de ajustes (morph/bone/sliders)
-├─ P1_v02.fbx                 # Modelo 3D (FBX)
-├─ T_Head_BaseColor.png       # Textura cabeza (albedo)
-├─ T_Ojos_BaseColor.png       # Textura ojos (albedo)
-└─ T_Tongue_BaseColor.png     # Textura lengua (albedo)
-```
-
-> El modelo FBX se carga desde `./P1_v02.fbx` en ambos HTML. Si renombrás el archivo, actualiza la constante `FBX_URL`. &#x20;
-
----
-
-## 2) Requisitos
-
-* **Navegador** moderno con WebGL y permiso de micrófono (Chrome recomendado).
-* **Servidor local** (no abrir con `file://`). Usa una de estas opciones:
-
-  * VS Code + **Live Server**.
-  * Node: `npx http-server . -p 8080`
-  * Python 3: `python -m http.server 8080`
-* **Conexión HTTPS** si pruebas desde un dominio (requerido para getUserMedia).
-
----
-
-## 3) Dependencias (CDN)
-
-Ambas páginas usan **import maps** para cargar:
-
-* `three@0.160.0`
-* `livekit-client@2` (vía `esm.sh`)
-* `@elevenlabs/client@0.6.2` (módulo ESM)
-
-Las rutas están declaradas en el `<script type="importmap">`. Esto soluciona el error *“Failed to resolve module specifier 'livekit-client'”* al resolver el paquete desde CDN. &#x20;
-
----
-
-## 4) Configuración de ElevenLabs (WebRTC)
-
-Edita en cada HTML:
-
-```js
-const AGENT_ID = 'agent_0601k5bpbdwyfwmr4qhwgxvfcn9m';
-const WP_BASE  = 'https://test-ai.garabatoweb.com';
-const FETCH_WEBRTC_TOKEN_URL = `${WP_BASE}/wp-json/eleven/v1/webrtc-token?agent_id=${encodeURIComponent(AGENT_ID)}`;
+/ (root)
+├─ index.html
+├─ eleven-webrtc-token.php
+├─ exp3test.glb
+├─ caja.glb
+├─ T_Side_Box_BaseColor.png
+├─ T_Theets_BaseColor.png
+├─ T_Ojos_BaseColor.png
+├─ Logo 01.png
+└─ Logo 02.png
 ```
 
-* `AGENT_ID`: tu agente de ElevenLabs.
-* `WP_BASE` y endpoint: servicio que devuelve un **token WebRTC** para `Conversation.startSession`. &#x20;
+## Getting Started (EN)
+1. **Clone** the repo and place GLB/PNG assets at the root.
+2. **Serve** locally (avoid `file://`):
+   ```bash
+   npx http-server . -p 8080
+   # or
+   python -m http.server 8080
+   ```
+3. Enable **PHP** if using `eleven-webrtc-token.php`. Otherwise set `TOKEN_URL` in `index.html` to your remote backend.
+4. Open `http://localhost:8080/index.html`. Click **Connect mic** and grant permission. (Mouth animation is driven by the model **clip** and the agent’s **output**.)
+
+## Key Configuration (EN)
+**In `index.html`:**
+- **ElevenLabs**: `AGENT_ID`, `TOKEN_URL` (defaults to `./eleven-webrtc-token.php`).
+- **Models & Textures**: `GLB_URL`, `BOX_URL`, `BOX_TEXTURE_URL`, `TEETH_TEXTURE_URL`; box `BOX_SCALE`, `BOX_OFFSET_MODE`, `BOX_OFFSET`, and “door” controls.
+- **Camera/Framing**: `FOV`, `VIEW` (aspect, padding, extraBack, offsets), `FIGURE_TILT_DEG`.
+- **Lipsync & Jaw/Teeth**: `talkSource='clip'`, `LIP_CONVERGE`, `LOWER_LIP_LOCK_BASE`, `TEETH_LOCK`, `TEETH_FOLLOW`, `LIP_OUTWARD_CLAMP`, `SILENT_BIAS`, optional XZ hard‑lock, and `AnimationMixer` blending.
+
+## WebRTC Token (EN)
+`eleven-webrtc-token.php` requests an **ephemeral** WebRTC token from ElevenLabs and returns it to the browser. Keep your **XI API Key** on the backend (env/constant) and **never** expose it on the client. You can also point `TOKEN_URL` to a remote endpoint (e.g., WordPress).
+
+## Tips (EN)
+- Different rig names? The loader uses hints and pattern search to locate lips/teeth/jaw.
+- Use devtools console for loader logs (detected nodes, bounds, clips).
+- Missing box? A fallback `BoxGeometry` + standard material is created.
+
+## License / Art (EN)
+- Code: MIT (suggested) or your own.
+- Models/art (GLB/PNG) belong to the original author; replace assets before redistribution.
+
+## Roadmap (EN)
+- GUI to switch avatar/scene and save **lipsync profiles**.
+- Phoneme‑driven visemes when agent events are available.
+- Texture compression (KTX2/Basis) and DRACO/Meshopt bundling.
+
+## Credits (EN)
+- [three.js](https://threejs.org/), `@elevenlabs/client`, `livekit-client` (CDN/ESM).
 
 ---
 
-## 5) Cómo ejecutar
+## Resumen (ES)
+Cerebro es una demo de **avatar 3D** en Three.js con **lipsync por clip** y controles de mandíbula/dientes impulsados por un **agente de ElevenLabs** vía WebRTC. Incluye **auto‑encuadre 4:3**, luces cinematográficas, una **caja** (GLB) con “puerta” y parámetros de ajuste para mandíbula/dientes.
 
-1. Levanta el servidor local en la carpeta del proyecto.
-2. Abre `http://localhost:8080/index.html` (o el puerto que uses).
-3. Presiona **Connect mic** / **Conectar (mic)** y **permite el micrófono**.
-4. Habla con el agente (el SDK maneja el audio).
+> Esta versión usa un **GLB** principal y un **GLB** de caja; el lipsync está **fijado al clip** (no al mic del usuario) y la detección de habla usa el **audio de salida** del agente.
 
-> En `index.html` verás un **loader** mientras se carga el FBX; luego el modelo se **auto-encuadra** para evitar que salga gigante en pantalla.&#x20;
+## Características (ES)
+- Carga `exp3test.glb` (avatar) y `caja.glb` (caja) con texturas opcionales.
+- **Auto‑encuadre 4:3**, composición de sombras en piso/pared.
+- **Luces cinematográficas** con sombras suaves.
+- **Lipsync por clip** con convergencia de labios y **seguimiento/bloqueo de dientes**.
+- Panel oculto para rango de apertura, caída del labio inferior, *bias* lateral y bloqueo XZ.
+- **ElevenLabs WebRTC** mediante token backend (`eleven-webrtc-token.php`).
 
----
+## Estructura (ES)
+```
+/ (raíz)
+├─ index.html
+├─ eleven-webrtc-token.php
+├─ exp3test.glb
+├─ caja.glb
+├─ T_Side_Box_BaseColor.png
+├─ T_Theets_BaseColor.png
+├─ T_Ojos_BaseColor.png
+├─ Logo 01.png
+└─ Logo 02.png
+```
 
-## 6) Controles y comportamiento
+## Puesta en marcha (ES)
+1. **Clona** el repo y coloca los activos GLB/PNG en la raíz.
+2. **Sirve** localmente (evita `file://`):
+   ```bash
+   npx http-server . -p 8080
+   # o
+   python -m http.server 8080
+   ```
+3. Habilita **PHP** si usarás `eleven-webrtc-token.php`. De lo contrario apunta `TOKEN_URL` en `index.html` a tu backend remoto.
+4. Abre `http://localhost:8080/index.html`. Presiona **Connect mic** y concede permisos. (La boca se anima con el **clip** del modelo y el **audio de salida** del agente).
 
-### `index.html` — demo enfocada a conversación
+## Configuración clave (ES)
+**En `index.html`:**
+- **ElevenLabs**: `AGENT_ID`, `TOKEN_URL` (por defecto `./eleven-webrtc-token.php`).
+- **Modelos y Texturas**: `GLB_URL`, `BOX_URL`, `BOX_TEXTURE_URL`, `TEETH_TEXTURE_URL`; `BOX_SCALE`, `BOX_OFFSET_MODE`, `BOX_OFFSET` y controles de “puerta”.
+- **Cámara/Encuadre**: `FOV`, `VIEW` (aspecto, padding, extraBack, offsets), `FIGURE_TILT_DEG`.
+- **Lipsync y Mandíbula/Dientes**: `talkSource='clip'`, `LIP_CONVERGE`, `LOWER_LIP_LOCK_BASE`, `TEETH_LOCK`, `TEETH_FOLLOW`, `LIP_OUTWARD_CLAMP`, `SILENT_BIAS`, bloqueo XZ opcional y mezcla con `AnimationMixer`.
 
-* **Botones:** Connect / Disconnect; selector de **micrófono**.
-* **Half-duplex:** si el agente habla, el micrófono se **mutea**; cuando el agente calla, se **desmutea** automáticamente.&#x20;
-* **Animación:**
+## Token WebRTC (ES)
+`eleven-webrtc-token.php` solicita un token **efímero** de WebRTC a ElevenLabs y lo devuelve al navegador. Mantén tu **XI API Key** en el backend (env/constante) y **no** la expongas en el cliente. También puedes apuntar `TOKEN_URL` a un endpoint remoto (WordPress u otro).
 
-  * **Solo la salida del agente** mueve la cabeza (oscilación sutil + *nod*) y el lipsync. Tu voz **no** mueve la figura.&#x20;
-  * LIPSYNC: si existe **blendshape** de boca (p. ej. `MouthOpen`, `jawOpen`, etc.), se usa; si no, se rota el **hueso de mandíbula**; y, como *fallback*, se hace un micro *squash\&stretch* del *scale*.&#x20;
-* **Debug:** presiona **D** para ver el **SkeletonHelper**.&#x20;
+## Consejos (ES)
+- ¿Nombres distintos en tu rig? El cargador usa *hints* y búsqueda por patrones para localizar labios/dientes/mandíbula.
+- Revisa la consola del navegador para *logs* (nodos detectados, bounds, clips).
+- Si falta la **caja**, se crea un *fallback* con `BoxGeometry` + material estándar.
 
-### `Untitled-1.html` — demo con panel de ajustes
+## Licencia / Arte (ES)
+- Código: MIT (sugerida) o la que elijas.
+- Modelos/arte (GLB/PNG): pertenecen al autor. Sustituye activos antes de redistribuir.
 
-* Selectores: **Mic**, **Morph** (blendshape) y **Jaw bone** (hueso).
-* Sliders: **Gain**, **MaxAngle°**, **Gate**, **Attack**, **Release** para afinar la respuesta de labios en tiempo real.&#x20;
-* Muestra en panel de debug: niveles de entrada/salida del agente y datos del lipsync.&#x20;
+## Roadmap (ES)
+- GUI para cambiar avatar/escena y guardar **perfiles de lipsync**.
+- Visemas por fonema cuando haya eventos del agente.
+- Compresión de texturas (KTX2/Basis) y empaquetado DRACO/Meshopt.
 
----
-
-## 7) Materiales y texturas
-
-Este repositorio incluye texturas base:
-
-* `T_Head_BaseColor.png` — piel/cabeza
-* `T_Ojos_BaseColor.png` — ojos
-* `T_Tongue_BaseColor.png` — lengua
-
-**Recomendación:** asigna estas texturas en tu DCC (Blender/Maya) y exporta el FBX con materiales ya mapeados. Si prefieres hacerlo en runtime, puedes extender el loader para localizar los `MeshStandardMaterial` por nombre y aplicar `map` con `TextureLoader`.
-
----
-
-## 8) Personalización rápida
-
-* **Cambiar el modelo:** sustituye `P1_v02.fbx` y ajusta `FBX_URL`. &#x20;
-* **Invertir eje/signo de la mandíbula:** en `Untitled-1.html` puedes forzar `JAW_AXIS_HINT` y `JAW_SIGN_HINT` si el modelo abre al revés.&#x20;
-* **Mostrar/ocultar huesos:** tecla **D** (ambos HTML). &#x20;
-
----
-
-## 9) Solución de problemas
-
-* **“Failed to resolve module specifier 'livekit-client'”**
-  Asegúrate de abrir el HTML **desde un servidor** y mantener el **import map** que apunta a `esm.sh`. &#x20;
-* **El modelo sale gigante / fuera de cámara**
-  Ya se aplica **auto-framing** al cargar; si cambias el FBX, se volverá a encuadrar.&#x20;
-* **No se mueve con mi voz**
-  Es intencional en `index.html`: **solo** la voz del agente anima el avatar (tu mic no controla labios/cabeza). Usa `Untitled-1.html` si quieres testear niveles, pero ahí también el lipsync viene del **SDK del agente** (input/output volumes). &#x20;
-* **Texturas no se ven**
-  Sirve los PNG desde el mismo origen y verifica rutas/UVs del FBX. Considera precargar con `TextureLoader`.
-
----
-
-## 10) Créditos y licencias
-
-* **Three.js**, **LiveKit Client**, **@elevenlabs/client** — sus licencias respectivas.
-* Modelo/arte y texturas: propios del proyecto (sustituye este texto por tu licencia preferida).
-
----
-
-## 11) Roadmap corto (ideas)
-
-* Aplicar materiales y normal maps en runtime.
-* Sistema de **visemas** por fonema (si el agente expone eventos).
-* GUI mínima para **cambiar avatar** y guardar perfiles de lipsync.
-
----
-
-¡Listo! Con esto deberías poder clonar, servir localmente y correr cualquiera de las dos variantes para tu demo de **avatar 3D parlante**.
+## Créditos (ES)
+- [three.js](https://threejs.org/), `@elevenlabs/client`, `livekit-client` (CDN/ESM).
