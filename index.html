@@ -1,166 +1,41 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8" />
   <title>KRANG — lipsync + caja + puerta + dientes + lengua</title>
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <style>
-    :root {
-      color-scheme: dark;
-    }
-
-    html,
-    body {
-      margin: 0;
-      height: 100dvh;
-      background: #000;
-      color: #eaeef5;
-      font-family: system-ui, Segoe UI, Roboto, sans-serif;
-      overflow: hidden;
-    }
-
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100dvh; background: #000; color: #eaeef5; font-family: system-ui, Segoe UI, Roboto, sans-serif; overflow: hidden; }
     header {
-      position: fixed;
-      top: 10px;
-      left: 20px;
-      padding: 10px 14px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      background: color-mix(in srgb, #0b0f1a 60%, transparent);
-      border: 1px solid #1f2840;
-      border-radius: 12px;
-      box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
-      backdrop-filter: blur(6px);
-      z-index: 20;
+      position: fixed; top: 10px; left: 20px; padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      background: color-mix(in srgb, #0b0f1a 60%, transparent); border: 1px solid #1f2840; border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.35); backdrop-filter: blur(6px); z-index: 20;
     }
-
-    button {
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 0;
-      background: #2a60ff;
-      color: #fff;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    button.secondary {
-      background: #27314e;
-    }
-
-    button[disabled] {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-
-    #status {
-      margin-left: auto;
-      opacity: .9;
-      font-size: 12px;
-    }
-
-    #stage {
-      position: fixed;
-      inset: 0;
-      display: block;
-      touch-action: none;
-      background: transparent;
-    }
-
+    button { padding: 8px 12px; border-radius: 10px; border: 0; background: #2a60ff; color: #fff; cursor: pointer; font-size: 12px; }
+    button.secondary { background: #27314e; }
+    button[disabled] { opacity: .5; cursor: not-allowed; }
+    #status { margin-left: auto; opacity: .9; font-size: 12px; }
+    #stage { position: fixed; inset: 0; display: block; touch-action: none; background: transparent; }
     #loader {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
       background: radial-gradient(1200px 600px at 50% -10%, #101a33 0%, rgba(11, 15, 26, .9) 40%, #0b0f1a 70%);
-      z-index: 10;
-      flex-direction: column;
-      gap: 12px;
+      z-index: 10; flex-direction: column; gap: 12px;
     }
-
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 4px solid #2a60ff30;
-      border-top-color: #2a60ff;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .loader-text {
-      font-size: 14px;
-      color: #cfe0ff;
-      opacity: .9
-    }
-
+    .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #2a60ff30; border-top-color: #2a60ff; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-size: 14px; color: #cfe0ff; opacity: .9 }
     .hud {
-      display: none;
-      position: fixed;
-      left: 10px;
-      bottom: 10px;
-      background: #0b0f1acc;
-      border: 1px solid #1f2840;
-      border-radius: 8px;
-      padding: 8px 10px;
-      font: 12px/1.2 system-ui;
-      z-index: 30;
+      display:none; position: fixed; left: 10px; bottom: 10px; background: #0b0f1acc; border: 1px solid #1f2840; border-radius: 8px;
+      padding: 8px 10px; font: 12px/1.2 system-ui; z-index: 30;
     }
-
-    .bar {
-      width: 160px;
-      height: 6px;
-      background: #18203a;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .fill {
-      height: 100%;
-      width: 0%;
-      background: #2a60ff;
-    }
-
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 6px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ff5566;
-    }
-
-    .dot.on {
-      background: #5aff7a;
-    }
-
-    @media (max-width: 640px) {
-      header {
-        left: 8px;
-        right: 8px;
-        top: 8px;
-        justify-content: space-between
-      }
-    }
-
-    canvas {
-      pointer-events: none;
-    }
+    .bar { width: 160px; height: 6px; background: #18203a; border-radius: 4px; overflow: hidden; }
+    .fill { height: 100%; width: 0%; background: #2a60ff; }
+    .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5566; }
+    .dot.on { background: #5aff7a; }
+    @media (max-width: 640px) { header { left: 8px; right: 8px; top: 8px; justify-content: space-between } }
+    canvas { pointer-events: none; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
@@ -198,14 +73,10 @@
 
   <div class="hud" id="hud" aria-hidden="true" style="display: none !important;">
     <div>levelOut: <span id="lvlTxt">0.00</span></div>
-    <div class="bar">
-      <div id="lvlBar" class="fill"></div>
-    </div>
+    <div class="bar"><div id="lvlBar" class="fill"></div></div>
     <div class="row">
-      <div>talking:</div>
-      <div id="talkDot" class="dot"></div>
-      <div style="margin-left:10px">open:</div>
-      <div id="openTxt">0.00</div>
+      <div>talking:</div><div id="talkDot" class="dot"></div>
+      <div style="margin-left:10px">open:</div><div id="openTxt">0.00</div>
     </div>
   </div>
 
@@ -245,8 +116,7 @@
     const DOOR_OFFSET = { x: 0.0, y: 0.90, z: 0.0 };
 
     // === LIPSYNC ===
-    const TALK_SOURCE = 'manual';               // << forzamos lipsync manual
-    const DISABLE_TALK_CLIP = true;             // << no crear/usar clip de boca
+    const TALK_SOURCE = 'auto';
     const TALK_NAME_HINTS = ['talk', 'habla', 'speak', 'lip', 'mouth', 'viseme', 'phoneme'];
 
     const ENABLE_IDLE_SWAY = false;
@@ -268,11 +138,19 @@
       SAFETY_CLEARANCE: 0.003
     };
 
-    // === Ajustes ===
-    const LIGHT_SCALE = 0.60;
-    const CHEEK_SILENT_DAMP = 0.90;
+    // === Ajustes pedidos ===
+    const LIGHT_SCALE = 0.60;        // -25% intensidad
+    const CHEEK_SILENT_DAMP = 0.90;  // -80% movimiento cachetes en silencio
 
-    // Micro-movimiento en silencio
+    // Animación cabeza (idle)
+    const HEAD_IDLE = {
+      enabled: true,
+      amp: { pitch: 0.035, yaw: 0.030, roll: 0.015 },
+      speed: { pitch: 0.50, yaw: 0.37, roll: 0.41 },
+      talkDamp: 0.5
+    };
+
+    // Micro-movimiento de labios en silencio
     const LIP_MICRO = {
       enabled: true,
       posAmp: { upY: 0.10, downY: 0.025 },
@@ -281,48 +159,30 @@
       cornersScale: 0.5
     };
 
+    // Sincronía micro para dientes y lengua en silencio
     const MICRO_SYNC = {
       enabled: true,
       teethScale: { upper: 0.35, lower: 0.45 },
       tongue: { pos: 0.25, rot: 0.25, phase: 0.9 }
     };
 
-    // Labio inferior baja menos + dientes acompañan
-    const LIP_DOWN_DROP = 0.0;
+    // --- NUEVO: labio inferior baja menos y dientes siguen
+    const LIP_DOWN_DROP = 1.15; // (antes ~1.85)
     const TEETH_FOLLOW = {
-      lowerDownY: -0.604,
+      lowerDownY: 0.004,
       lowerBackZ: 0.020,
       lowerRotDeg: 3.5,
       upperUpY: 0.0015,
       upperRotDeg: 1.2
     };
 
-    const JAW_TALK_LIFT = {
-      dy: 4.2115,   // 1.5 mm hacia arriba (ajusta 0.0008–0.0025)
-      rxDeg: +10.0   // cierra ~2° (opcional; 0 para desactivar)
-    };
+    // --- Mandíbula: corrección lateral para centrar eje (valor negativo = mueve a la IZQUIERDA)
+const JAW_CENTER = {
+  biasXPerRad: -0.910, // desplazamiento en X por radian de apertura (prueba -0.006 a -0.018)
+  alsoTeethAndLowerLip: true, // que acompañen dientes inferiores y labio inferior
+  hardLockXZ: true // bloquea cualquier deriva X/Z inesperada al final del frame
+};
 
-    // Anti-twist suave en labio superior (opcional)
-    const LIP_UP_TWIST_FIX = { enabled: true, cornerRotZDeg: 1.6 };
-
-    // ⬇️⬇️⬇️ NUEVO — Offsets de REPOSO para reposicionar labios
-    const LIP_REST_OFFSET = {
-      up: { x: 0.000, y: -0.0000, z: 0.000 }, // ↑ sube el labio superior
-      down: { x: 0.000, y: -0.0000, z: 0.000 },    // ↓ baja el labio inferior
-      cornersScale: 1.00                        // >1 empuja más comisuras
-    };
-
-    // Solo afecta cuando está hablando
-    const LIP_TALK_OFFSET = {
-      up: { x: 0.000, y: 0.4500, z: 0.000 },
-      down: {
-        x: 0.00, y: 0.5500, z: 0.000
-      },
-      cornersScale: 1.0
-    };
-    
-
-    // ⬆️⬆️⬆️ Edita estos valores para “cuadrar” los labios
 
     // ---------- ESCENA ----------
     const canvas = document.getElementById('stage');
@@ -345,8 +205,10 @@
     const pivot = new THREE.Group();
     scene.add(pivot);
 
+    // <<< FIX: guardamos posición base del pivot para bloquear deriva lateral
     const PIVOT_BASE_POS = new THREE.Vector3(0, 0, 0);
 
+    // 4:3 letter/pillarbox
     function fitCanvas43() {
       const W = window.innerWidth, H = window.innerHeight, targetAR = 4 / 3;
       let wEff, hEff;
@@ -378,6 +240,44 @@
     addEventListener('orientationchange', onResize, { passive: true });
 
     // ---------- HELPERS ----------
+
+    function jawRestPos(n) {
+  return restP.get(n) || new THREE.Vector3(0, 0, 0);
+}
+
+// Compensa el desvío lateral calculando un delta en X según el ángulo de apertura (en radianes)
+// Compensación lateral en función del ángulo (radianes)
+// valor negativo empuja a la IZQUIERDA
+function applyJawCenterComp(openRad) {
+  const dx = (JAW_CENTER.biasXPerRad || 0) * openRad; // +derecha / -izquierda
+
+  // La mandíbula real es DEF_JAW (no hay CTRL_JAW)
+  if (DEF_JAW) {
+    const base = restP.get(DEF_JAW) || new THREE.Vector3();
+    DEF_JAW.position.x = base.x + dx;
+  }
+
+  // Los dientes inferiores cuelgan de DEF_JAW, así que no hace falta moverlos.
+  // Si quieres acompañar el labio inferior visualmente, síguelos aquí:
+  if (JAW_CENTER.alsoTeethAndLowerLip) {
+    (LIP_DOWN || []).forEach(n => {
+      const base = restP.get(n) || new THREE.Vector3();
+      n.position.x = base.x + dx;
+    });
+  }
+}
+
+// Bloquea cualquier deriva X/Z inesperada (por acumulaciones numéricas o tracks del mixer)
+function hardLockJawXZ() {
+  const lockNode = DEF_JAW;
+  if (!lockNode) return;
+  const base = restP.get(lockNode) || new THREE.Vector3();
+  // Bloquea Z para evitar deriva hacia delante/atrás, pero respeta la X corregida
+  lockNode.position.z = base.z;
+  // NO tocar X aquí
+}
+
+
     const clamp01 = x => Math.min(1, Math.max(0, x));
     function disableFrustumCulling(root) { root.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); }
     const findExact = (root, name) => { let f = null; root.traverse(o => { if (!f && o.name === name) f = o; }); return f; };
@@ -393,48 +293,6 @@
     const mov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; restore(n); n.position.x += dx; n.position.y += dy; n.position.z += dz; };
     const addRot = (n, ax, r) => { if (!n || r === 0) return; const q = new THREE.Quaternion().setFromAxisAngle(ax, r); n.quaternion.multiply(q).normalize(); };
     const addMov = (n, dx = 0, dy = 0, dz = 0) => { if (!n) return; n.position.x += dx; n.position.y += dy; n.position.z += dz; };
-
-    // NUEVO — ajusta el reposo de posición
-    function offsetRest(n, dx = 0, dy = 0, dz = 0) {
-      const p = restP.get(n);
-      if (p) { p.x += dx; p.y += dy; p.z += dz; }
-    }
-
-    // ——— Mandíbula: bloqueo yaw/roll y drift lateral
-    const JAW_LOCK = { enabled: true, lockYaw: true, lockRoll: true, lockPosX: true, lockPosZ: true, lerp: 1.0 };
-    const JAW_BIAS = { posX: -0.0018, yawDeg: 0, rollDeg: 0 };
-
-    function lockJawNode(node) {
-      if (!node || !JAW_LOCK.enabled) return;
-      const rq = restQ.get(node), rp = restP.get(node);
-      if (!rq || !rp) return;
-      const e = new THREE.Euler().setFromQuaternion(node.quaternion, 'XYZ');
-      const er = new THREE.Euler().setFromQuaternion(rq, 'XYZ');
-      const yawBias = THREE.MathUtils.degToRad(JAW_BIAS.yawDeg || 0);
-      const rollBias = THREE.MathUtils.degToRad(JAW_BIAS.rollDeg || 0);
-      if (JAW_LOCK.lockYaw) e.y = er.y + yawBias;
-      if (JAW_LOCK.lockRoll) e.z = er.z + rollBias;
-      node.quaternion.setFromEuler(e).normalize();
-      const targetX = rp.x + (JAW_BIAS.posX || 0);
-      const targetZ = rp.z;
-      if (JAW_LOCK.lockPosX) node.position.x = THREE.MathUtils.lerp(node.position.x, targetX, JAW_LOCK.lerp);
-      if (JAW_LOCK.lockPosZ) node.position.z = THREE.MathUtils.lerp(node.position.z, targetZ, JAW_LOCK.lerp);
-    }
-
-    // ——— Labios: bloquear yaw/roll y X/Z; aplicar siempre desde reposo
-    const LIP_LOCK = { enabled: true, lockYaw: true, lockRoll: true, lockPosX: true, lockPosZ: true, lerp: 1.0 };
-    function lockLipNode(node) {
-      if (!node || !LIP_LOCK.enabled) return;
-      const rq = restQ.get(node), rp = restP.get(node);
-      if (!rq || !rp) return;
-      const e = new THREE.Euler().setFromQuaternion(node.quaternion, 'XYZ');
-      const er = new THREE.Euler().setFromQuaternion(rq, 'XYZ');
-      if (LIP_LOCK.lockYaw) e.y = er.y;
-      if (LIP_LOCK.lockRoll) e.z = er.z;
-      node.quaternion.setFromEuler(e).normalize();
-      if (LIP_LOCK.lockPosX) node.position.x = THREE.MathUtils.lerp(node.position.x, rp.x, LIP_LOCK.lerp);
-      if (LIP_LOCK.lockPosZ) node.position.z = THREE.MathUtils.lerp(node.position.z, rp.z, LIP_LOCK.lerp);
-    }
 
     function dampNodesTowardRest(nodes, k = 0.8) {
       if (!nodes) return;
@@ -505,10 +363,6 @@
     let TONGUE = [];
     let CHEEKS = [], EYELIDS = [], EYEBROWS = [], NOSE = null;
 
-    let prevTalking = false;
-let settleUntil = 0;          // ventana de “asentamiento” post-habla
-let hardSilentSince = performance.now();
-
     // ---------- UI ----------
     const statusEl = document.getElementById('status');
     const btnConnect = document.getElementById('btnConnect');
@@ -528,7 +382,7 @@ let hardSilentSince = performance.now();
     const ktx2 = new KTX2Loader().setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/basis/'); ktx2.detectSupport(renderer); loader.setKTX2Loader(ktx2);
     loader.setMeshoptDecoder(MeshoptDecoder);
 
-    // Helpers para recortar clip
+    // Helpers para recortar clip de habla a 5s
     function estimateFpsFromClip(clip) {
       const deltas = [];
       for (const tr of clip.tracks) {
@@ -576,6 +430,7 @@ let hardSilentSince = performance.now();
       disableFrustumCulling(avatar);
       pivot.add(avatar);
 
+      // <<< FIX: guardamos posición base del pivot tras añadir avatar
       PIVOT_BASE_POS.copy(pivot.position);
 
       avatar.traverse(o => {
@@ -599,7 +454,7 @@ let hardSilentSince = performance.now();
         if (s) avatar.userData.baseSphere = s;
       }
 
-      // === NODOS ===
+      // === NODOS (robusto) ===
       ROOT = findFirst(avatar, ['ROOT']) || findRegex(avatar, /\bKRANG_RIG\b/i)[0] || avatar;
       DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP', 'DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
       HEAD_DOWN = findFirst(avatar, ['DEF_HEAD_DOWN']) || findRegex(avatar, /DEF[_-]?HEAD[_-]?DOWN/i)[0] || null;
@@ -608,13 +463,16 @@ let hardSilentSince = performance.now();
       CTRL_JAW = findFirst(avatar, ['CTRL_JAW']) || null;
       DEF_JAW = findFirst(avatar, ['DEF_JAW']) || findRegex(avatar, /DEF[_-]?JAW/i)[0];
 
+      // Dientes
       TEETH_LOWER = findFirst(avatar, ['DEF_TEETH_DOWN'])
         || findRegex(avatar, /(DEF_)?TEETH.*(DOWN|LOWER|INF|BAJ)/i)[0]
-        || findRegex(avatar, /(teeth|dientes).*?(low|down|infer|abaj)/i)[0] || null;
+        || findRegex(avatar, /(teeth|dientes).*?(low|down|infer|abaj)/i)[0]
+        || null;
 
       TEETH_UPPER = findFirst(avatar, ['DEF_TEETH_UP'])
         || findRegex(avatar, /(DEF_)?TEETH.*(UP|UPPER|SUP|ARR)/i)[0]
-        || findRegex(avatar, /(teeth|dientes).*?(up|upper|super|arrib)/i)[0] || null;
+        || findRegex(avatar, /(teeth|dientes).*?(up|upper|super|arrib)/i)[0]
+        || null;
 
       const lipsAnyUpper = findRegex(avatar, /\bDEF_LIP(?!_DOWN)/i);
       const lipsAnyLower = findRegex(avatar, /\bDEF_LIP_DOWN_/i);
@@ -629,6 +487,7 @@ let hardSilentSince = performance.now();
       OJO_L = findFirst(avatar, ['DEF_EYE.L']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)L\b/i)[0];
       OJO_R = findFirst(avatar, ['DEF_EYE.R']) || findRegex(avatar, /DEF[_-]?EYE.*(\.|_)R\b/i)[0];
 
+      // Lengua
       const tongueRaw = findRegex(avatar, /DEF[_-]?TONGUE[_-]?(\d+)/i);
       TONGUE = tongueRaw.slice().sort((a, b) => {
         const ai = parseInt((a.name.match(/(\d+)/) || [])[1] || '0', 10);
@@ -658,22 +517,6 @@ let hardSilentSince = performance.now();
         ...TONGUE, ...CHEEKS, ...EYELIDS, ...EYEBROWS
       ].forEach(saveRest);
 
-      // ⬇️⬇️⬇️ NUEVO — Reposicionar labios modificando el REPOSO
-      (LIP_UP_CENTER || []).forEach(n => offsetRest(n, LIP_REST_OFFSET.up.x, LIP_REST_OFFSET.up.y, LIP_REST_OFFSET.up.z));
-      (LIP_UP_CORNERS || []).forEach(n => offsetRest(n,
-        LIP_REST_OFFSET.up.x * LIP_REST_OFFSET.cornersScale,
-        LIP_REST_OFFSET.up.y * LIP_REST_OFFSET.cornersScale,
-        LIP_REST_OFFSET.up.z * LIP_REST_OFFSET.cornersScale
-      ));
-
-      (LIP_DOWN_CENTER || []).forEach(n => offsetRest(n, LIP_REST_OFFSET.down.x, LIP_REST_OFFSET.down.y, LIP_REST_OFFSET.down.z));
-      (LIP_DOWN_CORNERS || []).forEach(n => offsetRest(n,
-        LIP_REST_OFFSET.down.x * LIP_REST_OFFSET.cornersScale,
-        LIP_REST_OFFSET.down.y * LIP_REST_OFFSET.cornersScale,
-        LIP_REST_OFFSET.down.z * LIP_REST_OFFSET.cornersScale
-      ));
-      // ⬆️⬆️⬆️ FIN offsets de reposo
-
       // Encuadre + entorno
       onResize(); frameToView(avatar, VIEW);
       addCinematicLights(avatar);
@@ -694,7 +537,7 @@ let hardSilentSince = performance.now();
       document.getElementById('loader').style.display = 'none';
       document.getElementById('hud').style.display = 'none';
 
-      // Mezclador / Clips (solo cuerpo; boca desactivada si DISABLE_TALK_CLIP)
+      // Mezclador / Clips
       if (gltf.animations && gltf.animations.length) {
         mixer = new THREE.AnimationMixer(avatar);
         clock = new THREE.Clock();
@@ -702,7 +545,7 @@ let hardSilentSince = performance.now();
         const rxMouthish = /(MOUTH|JAW|LIP|TONGUE|NOSE|BOCA|DIENTE|LABIO|Cabeza\.morphTargetInfluences|Head\.morphTargetInfluences)/i;
 
         let mouthTracks = [];
-        let bodyTracks = [];
+        let bodyTracks  = [];
         let maxDuration = 0;
 
         for (const clip of gltf.animations) {
@@ -720,16 +563,17 @@ let hardSilentSince = performance.now();
           actionBody.play();
         }
 
-        let talkClip = null;
-        if (!DISABLE_TALK_CLIP) {
-          let talkClipRaw = null;
-          if (mouthTracks.length) talkClipRaw = new THREE.AnimationClip('TalkMouthOnly', maxDuration || 1, mouthTracks);
-          else {
-            const talkByName = gltf.animations.find(c => TALK_NAME_HINTS.some(h => c.name?.toLowerCase().includes(h)));
-            talkClipRaw = talkByName || null;
-          }
-          talkClip = talkClipRaw ? makeFirstNSecondsClip(talkClipRaw, 5) : null;
+        let talkClipRaw = null;
+        if (mouthTracks.length) {
+          talkClipRaw = new THREE.AnimationClip('TalkMouthOnly', maxDuration || 1, mouthTracks);
+        } else {
+          const talkByName = gltf.animations.find(c =>
+            TALK_NAME_HINTS.some(h => c.name?.toLowerCase().includes(h))
+          );
+          talkClipRaw = talkByName || null;
         }
+
+        const talkClip = talkClipRaw ? makeFirstNSecondsClip(talkClipRaw, 5) : null;
 
         if (talkClip) {
           actionTalk = mixer.clipAction(talkClip);
@@ -737,7 +581,7 @@ let hardSilentSince = performance.now();
           actionTalk.clampWhenFinished = false;
           actionTalk.enabled = true;
           actionTalk.play();
-          actionTalk.setEffectiveTimeScale(0);
+          actionTalk.setEffectiveTimeScale(0); // no avanza solo
           actionTalk.setEffectiveWeight(0.0);
         } else {
           actionTalk = null;
@@ -749,6 +593,8 @@ let hardSilentSince = performance.now();
         THREE.MathUtils.degToRad(FIGURE_TILT_DEG.y),
         THREE.MathUtils.degToRad(FIGURE_TILT_DEG.z)
       );
+
+      console.log('Teeth lower:', TEETH_LOWER?.name, 'upper:', TEETH_UPPER?.name, 'tongue parts:', TONGUE.length);
 
     }, undefined, (err) => {
       console.error('GLB load error:', err);
@@ -890,7 +736,7 @@ let hardSilentSince = performance.now();
             pivotBox.add(containerBox);
             setBoxRotation(BOX_ROT_INIT);
 
-            // puerta
+            // Puerta
             try {
               const door = findFirstByHints(containerBox, DOOR_HINTS);
               if (door) {
@@ -1026,10 +872,10 @@ let hardSilentSince = performance.now();
       if (!r.ok) throw new Error('Could not obtain WebRTC token'); const { token } = await r.json(); return token;
     }
 
-    const OUT_GATE = 0.02, OUT_GAIN = 2.6, OUT_GAMMA = 1.15;
+    const OUT_GATE = 0.02, OUT_GAIN = 4.2, OUT_GAMMA = 0.75;
     const ATTACK = 0.55, RELEASE = 0.28, RELEASE_SILENT = 0.80;
-    const MAX_MOUTH_DEG = 14;
-    const THRESH_ON = 0.08, THRESH_OFF = 0.05, HOLD_ON_MS = 80, HOLD_OFF_MS = 150;
+    const MAX_MOUTH_DEG = 22;
+    const THRESH_ON = 0.06, THRESH_OFF = 0.03, HOLD_ON_MS = 80, HOLD_OFF_MS = 150;
 
     let agentTalking = false; let aboveSince = 0, belowSince = 0;
 
@@ -1129,109 +975,61 @@ let hardSilentSince = performance.now();
       upperDown: -1, upperRxDeg: -8, jawRxDeg: 18
     };
 
-    // ——— Boca DESDE REPOSO (labios + dientes + mandíbula, sin laterales)
+    // Labios + dientes sincronizados y labio inferior reducido
     function applyMouth(open) {
-      const o = clamp01(open);
-      const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * o;
-      const xAxis = new THREE.Vector3(1, 0, 0);
+  const ang = THREE.MathUtils.degToRad(MAX_MOUTH_DEG) * open;
 
-      // — Mandíbula (solo pitch/X)
-      if (CTRL_MOUTH) rot(CTRL_MOUTH, xAxis, -ang);
-      if (CTRL_JAW) rot(CTRL_JAW, xAxis, -ang * 0.85);
-      if (DEF_JAW) rot(DEF_JAW, xAxis, -ang * 0.65);
+  // Mandíbula / control (solo eje X)
+  if (CTRL_MOUTH) rot(CTRL_MOUTH, new THREE.Vector3(1, 0, 0), -ang);
+  if (CTRL_JAW)   rot(CTRL_JAW,   new THREE.Vector3(1, 0, 0), -ang * 0.85);
+  if (DEF_JAW)    rot(DEF_JAW,    new THREE.Vector3(1, 0, 0), -ang * 0.65);
 
-      // — Levante suave de mandíbula mientras habla
-      if (o > 0) {
-        // subir en Y
-        if (CTRL_JAW) addMov(CTRL_JAW, 0, JAW_TALK_LIFT.dy * o, 0);
-        if (DEF_JAW) addMov(DEF_JAW, 0, JAW_TALK_LIFT.dy * 0.7 * o, 0);
+  // Dientes inferiores: acompañan (sin X)
+  if (TEETH_LOWER) {
+    restore(TEETH_LOWER);
+    addMov(TEETH_LOWER, 0, -TEETH_FOLLOW.lowerDownY * open, -TEETH_FOLLOW.lowerBackZ * open);
+    addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), -THREE.MathUtils.degToRad(TEETH_FOLLOW.lowerRotDeg) * open);
+  }
+  // Dientes superiores: micro gesto
+  if (TEETH_UPPER) {
+    restore(TEETH_UPPER);
+    addMov(TEETH_UPPER, 0, +TEETH_FOLLOW.upperUpY * open, 0);
+    addRot(TEETH_UPPER, new THREE.Vector3(1, 0, 0), +THREE.MathUtils.degToRad(TEETH_FOLLOW.upperRotDeg) * open);
+  }
 
-        // cerrar un poquito (opcional)
-        const rxFix = THREE.MathUtils.degToRad(JAW_TALK_LIFT.rxDeg || 0) * o;
-        if (rxFix) {
-          if (CTRL_JAW) addRot(CTRL_JAW, xAxis, +rxFix);
-          if (DEF_JAW) addRot(DEF_JAW, xAxis, +rxFix * 0.7);
-        }
-      }
+  // Labios: arriba/abajo (sin X para evitar tirones laterales)
+  const upDy = -2.45 * open, upRx = +ang * 0.14;
+  const dnDy = -LIP_DOWN_DROP * open, dnRx = -ang * 0.20;
 
+  (LIP_UP || []).forEach(n => { mov(n, 0, upDy, 0); rot(n, new THREE.Vector3(1, 0, 0), upRx); });
+  (LIP_DOWN || []).forEach(n => { mov(n, 0, dnDy, 0); rot(n, new THREE.Vector3(1, 0, 0), dnRx); });
 
-      // — Dientes (acompañan, sin mover en X/Z)
-      if (TEETH_LOWER) {
-        restore(TEETH_LOWER);
-        addMov(TEETH_LOWER, 0, -TEETH_FOLLOW.lowerDownY * o, -TEETH_FOLLOW.lowerBackZ * o);
-        addRot(TEETH_LOWER, xAxis, -THREE.MathUtils.degToRad(TEETH_FOLLOW.lowerRotDeg) * o);
-      }
-      if (TEETH_UPPER) {
-        restore(TEETH_UPPER);
-        addMov(TEETH_UPPER, 0, +TEETH_FOLLOW.upperUpY * o, 0);
-        addRot(TEETH_UPPER, xAxis, +THREE.MathUtils.degToRad(TEETH_FOLLOW.upperRotDeg) * o);
-      }
-
-      // — Offset SOLO EN HABLA (se suma antes de los gestos)
-      if (o > 0) {
-        const U = LIP_TALK_OFFSET.up, D = LIP_TALK_OFFSET.down, CS = (LIP_TALK_OFFSET.cornersScale ?? 1);
-
-        (LIP_UP_CENTER || []).forEach(n => { restore(n); addMov(n, U.x, U.y, U.z); });
-        (LIP_UP_CORNERS || []).forEach(n => { restore(n); addMov(n, U.x * CS, U.y * CS, U.z * CS); });
-        (LIP_DOWN_CENTER || []).forEach(n => { restore(n); addMov(n, D.x, D.y, D.z); });
-        (LIP_DOWN_CORNERS || []).forEach(n => { restore(n); addMov(n, D.x * CS, D.y * CS, D.z * CS); });
-      } else {
-        // si está prácticamente cerrado y en silencio, que vuelvan al reposo
-        (LIP_UP || []).forEach(restore);
-        (LIP_DOWN || []).forEach(restore);
-      }
-
-      // — Gestos de apertura: solo Y + rotX, sin laterales
-      const upDy = -2.45 * o, upRx = +ang * 0.14;
-      const dnDy = -LIP_DOWN_DROP * o, dnRx = -ang * 0.20;
-
-      (LIP_UP_CENTER || []).forEach(n => { addMov(n, 0, upDy, 0); addRot(n, xAxis, upRx); lockLipNode(n); });
-      (LIP_UP_CORNERS || []).forEach(n => { addMov(n, 0, upDy, 0); addRot(n, xAxis, upRx); lockLipNode(n); });
-
-      (LIP_DOWN_CENTER || []).forEach(n => { addMov(n, 0, dnDy, 0); addRot(n, xAxis, dnRx); lockLipNode(n); });
-      (LIP_DOWN_CORNERS || []).forEach(n => { addMov(n, 0, dnDy, 0); addRot(n, xAxis, dnRx); lockLipNode(n); });
-
-      // — Anti-twist leve en comisuras superiores (opcional)
-      if (LIP_UP_TWIST_FIX?.enabled && o > 0) {
-        const zAxis = new THREE.Vector3(0, 0, 1);
-        const rz = THREE.MathUtils.degToRad(LIP_UP_TWIST_FIX.cornerRotZDeg) * o;
-        (LIP_UP_CORNERS || []).forEach(n => {
-          const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
-          addRot(n, zAxis, (isLeft ? -rz : +rz));
-          lockLipNode(n);
-        });
-      }
-    }
+  // Compensación lateral para centrar eje de mandíbula (usa JAW_CENTER.biasXPerRad)
+  applyJawCenterComp(ang);
+}
 
     function applySeal(k) {
       if (!SEAL.enabled || k <= 0) return;
       const rxLower = THREE.MathUtils.degToRad(SEAL.lowerRxDeg) * k;
       const rxUpper = THREE.MathUtils.degToRad(SEAL.upperRxDeg) * k;
-      const rzCorner = THREE.MathUtils.degToRad(SEAL.cornerRotZDeg) * k;
+      const rxJaw   = THREE.MathUtils.degToRad(SEAL.jawRxDeg)   * k;
+      const rzCorner= THREE.MathUtils.degToRad(SEAL.cornerRotZDeg) * k;
 
-      (LIP_DOWN_CENTER || []).forEach(n => {
-        addMov(n, 0, +SEAL.lowerUpMid * k, 0);
-        addRot(n, new THREE.Vector3(1, 0, 0), rxLower);
-      });
-
+      (LIP_DOWN_CENTER || []).forEach(n => { addMov(n, 0, +SEAL.lowerUpMid * k, 0); addRot(n, new THREE.Vector3(1, 0, 0), rxLower); });
       (LIP_DOWN_CORNERS || []).forEach(n => {
-        const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name);
-        const dir = isLeft ? +1 : -1;
         addMov(n, 0, +(SEAL.lowerUpMid * SEAL.lowerUpCornerScale) * k, 0);
+        const isLeft = /\.L\b|_L\b|\bL\b/i.test(n.name); const dir = isLeft ? +1 : -1;
         addMov(n, SEAL.cornerPinchX * dir * k, 0, 0);
         addRot(n, new THREE.Vector3(0, 0, 1), rzCorner * -dir);
         addRot(n, new THREE.Vector3(1, 0, 0), rxLower * 0.7);
       });
 
-      (LIP_UP_CENTER || []).forEach(n => {
-        addMov(n, 0, -SEAL.upperDown * k, 0);
-        addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.8);
-      });
+      (LIP_UP_CENTER || []).forEach(n => { addMov(n, 0, -SEAL.upperDown * k, 0); addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.8); });
+      (LIP_UP_CORNERS || []).forEach(n => { addMov(n, 0, -(SEAL.upperDown * 0.5) * k, 0); addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.6); });
 
-      (LIP_UP_CORNERS || []).forEach(n => {
-        addMov(n, 0, -(SEAL.upperDown * 0.5) * k, 0);
-        addRot(n, new THREE.Vector3(1, 0, 0), rxUpper * 0.6);
-      });
+      if (CTRL_JAW) addRot(CTRL_JAW, new THREE.Vector3(1, 0, 0), +rxJaw);
+      if (DEF_JAW)  addRot(DEF_JAW,  new THREE.Vector3(1, 0, 0), +rxJaw * 0.7);
+      if (TEETH_LOWER) addRot(TEETH_LOWER, new THREE.Vector3(1, 0, 0), +rxJaw * 0.25);
     }
 
     function getMouthFloorY() {
@@ -1354,9 +1152,20 @@ let hardSilentSince = performance.now();
       if (headNode) {
         restore(headNode);
         addRot(headNode, new THREE.Vector3(1, 0, 0), nod);
+
+        if (HEAD_IDLE.enabled) {
+          const damp = talking ? (HEAD_IDLE.talkDamp ?? 0.5) : 1.0;
+          const rx = Math.sin(t * HEAD_IDLE.speed.pitch) * HEAD_IDLE.amp.pitch * damp;
+          const ry = Math.sin(t * HEAD_IDLE.speed.yaw + 1.3) * HEAD_IDLE.amp.yaw * damp;
+          const rz = Math.sin(t * HEAD_IDLE.speed.roll + 0.7) * HEAD_IDLE.amp.roll * damp;
+          addRot(headNode, new THREE.Vector3(1, 0, 0), rx);
+          addRot(headNode, new THREE.Vector3(0, 1, 0), ry);
+          addRot(headNode, new THREE.Vector3(0, 0, 1), rz);
+        }
       }
 
       if (ROOT) {
+        // no sway lateral de cuerpo si no lo quieres
         restore(ROOT);
         if (ENABLE_IDLE_SWAY) {
           const sway = Math.sin(t * 0.9) * 0.03;
@@ -1409,139 +1218,144 @@ let hardSilentSince = performance.now();
       }
     }
 
+    function applyArmsWhileTalking(t, energy) {
+      const baseAmp = 0.22 * energy;
+      const speed = 2.2;
+      const drive = (arr, invert = false) => {
+        (arr || []).forEach((n, i) => {
+          if (!n) return; restore(n);
+          const falloff = 0.85 - i * 0.18;
+          const angZ = Math.sin(t * speed + i * 0.8) * baseAmp * falloff * (invert ? -1 : 1);
+          const angY = Math.cos(t * speed * 0.9 + i * 0.7) * baseAmp * 0.6 * falloff;
+          const qZ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angZ);
+          const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angY);
+          n.quaternion.multiply(qZ).multiply(qY).normalize();
+        });
+      };
+      drive(ARM_L, false);
+      drive(ARM_R, true);
+    }
+
+    // <<< FIX: temporizador para salida más suave al terminar de hablar
     let justStoppedAt = 0;
 
     function animate() {
-  requestAnimationFrame(animate);
-  const now = performance.now();
-  const t = now * 0.001;
+      requestAnimationFrame(animate);
+      const t = performance.now() * 0.001;
 
-  if (mixer && clock) mixer.update(clock.getDelta());
+      if (mixer && clock) mixer.update(clock.getDelta());
 
-  // Estado de habla
-  const talkingNow = (forceTalking || agentTalking);
-  const talkingFromMic = agentTalking && !forceTalking;
+      const talkingNow = (forceTalking || agentTalking);
+      const talkingFromMic = agentTalking && !forceTalking;
 
-  // Flanco: acaba de dejar de hablar -> abre ventana de asentamiento
-  if (prevTalking && !talkingNow) {
-    settleUntil = now + 320;       // 320 ms de “colchón”
-  }
-  prevTalking = talkingNow;
+      // Detecta cambio de hablar->silencio
+      if (!talkingNow && (aboveSince === 0 && belowSince !== 0)) {
+        // nada
+      }
+      // Cuando pasa de hablar a callar
+      if (!talkingNow && talkDot.classList.contains('on')) {
+        justStoppedAt = performance.now();
+      }
 
-  // Target de apertura desde volumen
-  const Lraw = levelOut;
-  let targetOpen = 0;
-  if (talkingNow) {
-    const lvl = Math.max(0, Lraw - OUT_GATE);
-    const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
-    const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
-    targetOpen = Math.min(boosted, 1.0);
-    if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
-  } else {
-    // contador de silencio “duro” (para kill-switch)
-    hardSilentSince = hardSilentSince || now;
-  }
+      const Lraw = levelOut;
+      let targetOpen = 0;
+      if (talkingNow) {
+        const lvl = Math.max(0, Lraw - OUT_GATE);
+        const g = talkingFromMic ? (micCalibrated ? micGain : 1) : 1;
+        const boosted = Math.pow(lvl * g * OUT_GAIN, OUT_GAMMA);
+        targetOpen = Math.min(boosted, 1.0);
+        if (forceTalking && targetOpen < 0.25) targetOpen = 0.25;
+      }
 
-  // Envelope con cooldown post-habla
-  const isSettling = now < settleUntil;
-  let localRelease = talkingNow ? RELEASE : RELEASE_SILENT;
-  if (isSettling) localRelease = Math.min(0.96, localRelease + 0.20); // salida más suave
+      if (JAW_CENTER.hardLockXZ) hardLockJawXZ();
 
-  const k = (targetOpen > jawOpen) ? ATTACK : localRelease;
-  jawOpen += (targetOpen - jawOpen) * k;
-
-  // ¿Usamos clip o manual?
-  const clipAvailable = !!actionTalk;
-  const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
-
-  if (useClip) {
-    if (actionTalk) {
-      const tgtW = talkingNow ? 1.0 : 0.0;
-      const cur = actionTalk.getEffectiveWeight();
-      actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
-      // acelera un pelín con apertura para que no “arrastre”
-      actionTalk.timeScale = THREE.MathUtils.lerp(0.85, 1.55, Math.min(1, Math.max(0, jawOpen)));
-      if (!talkingNow && isSettling) actionTalk.timeScale *= 1.05; // drena frames rápido
-    }
-    if (actionMouth) actionMouth.setEffectiveWeight(0.0);
-  } else {
-    const mixerWeight = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
-    const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
-
-    if (actionMouth) {
-      const cur = actionMouth.getEffectiveWeight();
-      actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
-    }
-    if (mixerWeight > 0) applyMixerAdditives(Math.min(1, Math.max(0, jawOpen)));
-
-    if (jawOpen >= 0.02) {
-      applyMouth(Math.min(1, Math.max(0, jawOpen * manualWeight)));
-    } else if (!talkingNow && mixerWeight === 0) {
-      // kill-switch cuando realmente está cerrado
-      jawOpen = 0;
-      resetMouthPose();
-      if (actionTalk) { actionTalk.setEffectiveWeight(0); actionTalk.setEffectiveTimeScale(0); }
-    }
-
-    // Seal sin “latigazo”: curva suavizada
-    const smoothstep = (a, b, x) => { const tt = Math.min(1, Math.max(0, (x - a) / (b - a))); return tt * tt * (3 - 2 * tt); };
-    const sealK = 1.0 - smoothstep(1.05, 0.20, jawOpen);
-    applySeal(Math.min(1, Math.max(0, sealK)));
-  }
-
-  // Lengua siempre por apertura (con seguridad interna)
-  applyTongue(t, Math.min(1, Math.max(0, jawOpen)));
-
-  // Brazos/tentáculos con energía de habla
-  if (talkingNow && jawOpen > 0) { if (typeof applyTentacles === 'function') applyTentacles(t, Math.min(1, Math.max(0, jawOpen))); }
-  else {
-    (ARM_L || []).forEach(n => restore(n));
-    (ARM_R || []).forEach(n => restore(n));
-    if (typeof applyTentacles === 'function') applyTentacles(t, 0);
-  }
-
-  // Ojos/cabeza/idle
-  applyEyesIdle();
-  applyHeadAndBodyIdle(t, talkingNow);
-
-  // Cachetes amortiguados en silencio
-  if (!talkingNow) dampNodesTowardRest(CHEEKS, CHEEK_SILENT_DAMP);
-
-  // Micro-idle SOLO en silencio y fuera del cooldown (evita “temblor” post-habla)
-  if (!talkingNow && !isSettling) {
-    const kSilent = 1 - Math.min(1, Math.max(0, (jawOpen - 0.05) / (0.22 - 0.05)));
-    if (kSilent > 0.001) {
-      const offsets = computeLipMicroOffsets(t, kSilent);
-      applyLipsMicroIdle(offsets);
-      applyTeethTongueMicroIdle(t, offsets);
-    }
-  }
-
-  // Bloqueos de estabilidad SIEMPRE (evita drift lateral y torsiones)
-  lockJawNode(CTRL_JAW); lockJawNode(DEF_JAW);
-  (LIP_UP || []).forEach(lockLipNode);
-  (LIP_DOWN || []).forEach(lockLipNode);
-
-  // Recentrado de pivot/ROOT mientras habla (y también en la cola de asentamiento)
-  if (talkingNow || isSettling) {
-    pivot.position.x = PIVOT_BASE_POS.x;
-    pivot.position.z = PIVOT_BASE_POS.z;
-    if (ROOT) {
-      const rp = restP.get(ROOT);
-      if (rp) { ROOT.position.x = rp.x; ROOT.position.z = rp.z; }
-    }
-  }
-
-  // UI
-  openTxt.textContent = jawOpen.toFixed(2);
+      openTxt.textContent = jawOpen.toFixed(2);
   lvlTxt.textContent = levelOut.toFixed(2);
   lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
   talkDot.classList.toggle('on', talkingNow);
 
-  controls.update();
-  renderer.render(scene, camera);
-}
-requestAnimationFrame(animate);
+      // *Salida suave*: si acaba de terminar, sube RELEASE momentáneamente
+      let localRelease = (talkingNow ? RELEASE : RELEASE_SILENT);
+      if (!talkingNow && (performance.now() - justStoppedAt) < 220) {
+        localRelease = Math.min(0.95, localRelease + 0.12);
+      }
+
+      const k = (targetOpen > jawOpen) ? ATTACK : localRelease;
+      jawOpen += (targetOpen - jawOpen) * k;
+
+      const clipAvailable = !!actionTalk;
+      const useClip = (TALK_SOURCE === 'clip') || (TALK_SOURCE === 'auto' && clipAvailable);
+
+      if (useClip) {
+        if (actionTalk) {
+          const tgtW = talkingNow ? 1.0 : 0.0;
+          const cur = actionTalk.getEffectiveWeight();
+          actionTalk.setEffectiveWeight(cur + (tgtW - cur) * 0.25);
+          actionTalk.timeScale = THREE.MathUtils.lerp(0.8, 1.6, clamp01(jawOpen));
+        }
+        if (actionMouth) actionMouth.setEffectiveWeight(0.0);
+      } else {
+        const mixerWeight = USE_MIXER_MOUTH ? (talkingNow ? MOUTH_MIXER_WHEN_TALK : MOUTH_MIXER_WHEN_SILENT) : 0.0;
+        const manualWeight = talkingNow ? MOUTH_MANUAL_WHEN_TALK : MOUTH_MANUAL_WHEN_SILENT;
+
+        if (actionMouth) {
+          const cur = actionMouth.getEffectiveWeight();
+          actionMouth.setEffectiveWeight(cur + (mixerWeight - cur) * 0.2);
+        }
+        if (mixerWeight > 0) applyMixerAdditives(clamp01(jawOpen));
+
+        if (jawOpen >= 0.02) applyMouth(clamp01(jawOpen * manualWeight));
+        else if (!talkingNow && mixerWeight === 0) { jawOpen = 0; resetMouthPose(); }
+
+        const smoothstep = (a, b, x) => { const tt = Math.min(1, Math.max(0, (x - a) / (b - a))); return tt * tt * (3 - 2 * tt); };
+        const sealK = 1.0 - smoothstep(1.08, 0.18, jawOpen);
+        applySeal(Math.min(1, Math.max(0, sealK)));
+      }
+
+      // Lengua SIEMPRE según apertura
+      applyTongue(t, clamp01(jawOpen));
+
+      if (talkingNow && jawOpen > 0) applyArmsWhileTalking(t, clamp01(jawOpen));
+      else { (ARM_L || []).forEach(n => restore(n)); (ARM_R || []).forEach(n => restore(n)); }
+
+      if (typeof applyTentacles === 'function') applyTentacles(t, talkingNow ? clamp01(jawOpen) : 0);
+
+      applyEyesIdle();
+      applyHeadAndBodyIdle(t, talkingNow);
+
+      // Cachetes: amortiguar fuerte cuando NO habla
+      if (!talkingNow) dampNodesTowardRest(CHEEKS, CHEEK_SILENT_DAMP);
+
+      // Micro-movimientos SOLO en silencio
+      if (!talkingNow) {
+        const kSilent = 1 - Math.min(1, Math.max(0, (jawOpen - 0.05) / (0.22 - 0.05)));
+        if (kSilent > 0.001) {
+          const offsets = computeLipMicroOffsets(t, kSilent);
+          applyLipsMicroIdle(offsets);
+          applyTeethTongueMicroIdle(t, offsets);
+        }
+      }
+
+      // <<< FIX: Bloqueo anti-deriva lateral durante habla (mantener centro)
+      if (talkingNow) {
+        // Fijo pivot y ROOT en su X/Z base
+        pivot.position.x = PIVOT_BASE_POS.x;
+        pivot.position.z = PIVOT_BASE_POS.z;
+        if (ROOT) {
+          const rp = restP.get(ROOT);
+          if (rp) { ROOT.position.x = rp.x; ROOT.position.z = rp.z; }
+        }
+      }
+
+      openTxt.textContent = jawOpen.toFixed(2);
+      lvlTxt.textContent = levelOut.toFixed(2);
+      lvlBar.style.width = Math.min(100, levelOut * 100) + '%';
+      talkDot.classList.toggle('on', talkingNow);
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
 
     async function listMicsInit() { try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { } }
     listMicsInit().finally(listMics);
@@ -1549,5 +1363,4 @@ requestAnimationFrame(animate);
     fitCanvas43();
   </script>
 </body>
-
 </html>
