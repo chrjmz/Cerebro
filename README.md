@@ -1,251 +1,232 @@
-
-# KRANG — 3D Avatar + ElevenLabs (WebRTC)  
-**Lipsync + mandíbula + dientes + lengua**  
-*(English below)*
-
-## 🧱 Estructura del proyecto
-
-```
-/ (root)
-├─ index.html                 # Shell de la app (importmap + UI)
-├─ app.css                    # Estilos
-├─ app.js                     # Lógica Three.js + ElevenLabs
-├─ eleven-webrtc-token.php    # Token proxy (standalone, sin WordPress)
-├─ exp3test.glb               # Modelo GLB (o el que estés usando)
-├─ T_Ojos_BaseColor.png       # Textura ojos
-├─ T_Theets_BaseColor.png     # Textura dientes
-├─ T_Side_Box_BaseColor.png   # Textura “caja/puerta” (si aplica)
-├─ Logo 01.png / Logo 02.png  # Activos UI
-└─ (otros assets…)
-```
-
----
-
-## ⚙️ Requisitos
-
-- Servir por **HTTPS** (recomendado) para acceso a micrófono en Chrome.
-- Un servidor estático simple (Live Server, `http-server`, `python -m http.server`).
-- Un backend que obtenga el **conversation token** de ElevenLabs:
-  - O **`eleven-webrtc-token.php`** (incluido).
-  - O tu **endpoint WordPress** (`/wp-json/eleven/v1/webrtc-token`).
-
----
-
-## 🚀 Cómo ejecutar en local
-
-1) Instala un servidor local (elige uno):
-```bash
-# Node
-npx http-server -p 8080
-
-# o Python 3
-python -m http.server 8080
-```
-
-2) Abre `https://localhost:8080` (o la URL que te dé tu servidor con HTTPS si lo tienes configurado).
-
-3) Verás el loader, luego el avatar. Usa el botón **Connect mic** para seleccionar el micrófono.
-
-> Si Chrome no muestra la lista de micrófonos, revisa la sección **Solución de problemas (micrófono)** más abajo.
-
----
-
-## 🔑 Configuración (claves y endpoints)
-
-En `app.js`, verifica estas constantes (o el mecanismo que ya tengas):
-
-```js
-const AGENT_ID = 'agent_XXXXXXXX';            // Tu agente de ElevenLabs
-const TOKEN_URL = './eleven-webrtc-token.php';// Proxy PHP local
-// Si usas WordPress, puedes mantener:
-const WP_BASE = 'https://tu-dominio-wp.com';  // para tus propias llamadas
-```
-
-### Opción A — PHP standalone (`eleven-webrtc-token.php`)
-- Sube el archivo al mismo directorio de `index.html`.
-- Asegúrate de que el host tenga PHP activado.
-- `app.js` llamará a `TOKEN_URL` para obtener el token.
-
-### Opción B — WordPress REST
-- Mantén tu MU plugin/endpoint (`/wp-json/eleven/v1/webrtc-token`) con la `ELEVEN_API_KEY`.
-- Cambia `TOKEN_URL` para apuntar a tu ruta REST si prefieres.
-
----
-
-## 🧩 Tecnologías
-
-- **Three.js** (carga GLB, animaciones, rig de mandíbula/dientes/labios)
-- **ElevenLabs WebRTC** (voz del agente + evento de nivel de audio para lipsync)
-- **Import maps** en `index.html` y código módulo en `app.js`
-- Paneles UI mínimos para ajustes (mandíbula, dientes, etc.)
-
----
-
-## 🛠️ Solución de problemas
-
-### 1) Chrome no muestra micrófonos / no pide permiso
-- Verifica que **no** estés enviando un encabezado que los bloquee.  
-  **No uses:** `Permissions-Policy: microphone=()` en el root del sitio.  
-  **Permite al menos self:**  
-  - **Nginx**
-    ```nginx
-    add_header Permissions-Policy 'microphone=(self)';
-    ```
-  - **Apache (.htaccess)**
-    ```apache
-    Header set Permissions-Policy "microphone=(self)"
-    ```
-- Recuerda que **Chrome solo muestra etiquetas de dispositivos** después de conceder permiso alguna vez.  
-  El flujo correcto es: llamar `getUserMedia({ audio: true })` → usuario acepta → `enumerateDevices()` devuelve lista con nombres.
-
-### 2) HTTPS / contextos seguros
-- En Chrome, algunos permisos y `enumerateDevices()` requieren **origen seguro** (HTTPS o `localhost`).
-
-### 3) CORS / tipos MIME para 3D y decoders
-- Asegura MIME correctos:
-  - `.glb` → `model/gltf-binary`
-  - `.wasm` → `application/wasm`
-  - `.ktx2` → `image/ktx2`
-- Si ves errores de CORS, habilita:
-  - **Nginx**
-    ```nginx
-    add_header Access-Control-Allow-Origin "*";
-    add_header Access-Control-Allow-Methods "GET, OPTIONS";
-    ```
-  - **Apache**
-    ```apache
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, OPTIONS"
-    ```
-
-### 4) WebGL en hosting (ej. Hostinger)
-- Verifica que el proveedor no reescriba rutas a `/index.php` en carpetas estáticas.
-- Desactiva reglas que bloqueen `.glb`/`.wasm` y confirma que no haya 403 por WAF/ModSecurity.
-
----
-
-## 🧪 Pruebas rápidas
-
-- **Auto-frame:** al cargar el GLB debe encuadrar el avatar y mostrarlo centrado.
-- **Lipsync:** al hablar el agente, verás apertura/rotación mandibular + ajustes de labios/dientes.
-- **Half-duplex:** tu captura de mic se pausa cuando habla el agente, evitando realimentación.
-
----
-
-## 📦 Deploy
-
-- **Estático + PHP**: sube todo el contenido del proyecto (incluye `eleven-webrtc-token.php`).  
-- **WordPress**: sirve `index.html` y assets como archivos estáticos (subcarpeta o raíz) y usa tu endpoint REST para el token.  
-- Asegura **HTTPS**, ajusta **Permissions-Policy** y **CORS** según lo anterior.
-
----
-
-## 🗒️ Changelog
-
-- **2025-10-06**: Separación en `index.html`, `app.css`, `app.js`. README actualizado.  
-- **2025-10-02**: Añadidos controles de mandíbula/dientes y mejoras de lipsync.  
-
----
-
-## 📄 Licencia y créditos
-
-- Código de ejemplo: MIT (ajústalo si planeas otra licencia).  
-- Modelos y texturas: asegúrate de tener derechos para su uso y distribución.  
-- ElevenLabs WebRTC: sujeto a Términos de ElevenLabs.
-
----
-
----
-
-# KRANG — 3D Avatar + ElevenLabs (WebRTC)  
-**Lipsync + jaw + teeth + tongue**
+# KRANG — 3D Avatar + ElevenLabs (WebRTC)
+**Lipsync + jaw + teeth + tongue**  
+*(Spanish version below)*
 
 ## 🧱 Project structure
 
 ```
 / (root)
-├─ index.html                 # App shell (importmap + UI)
+├─ index.html                 # Shell + importmap + UI
 ├─ app.css                    # Styles
 ├─ app.js                     # Three.js + ElevenLabs logic
-├─ eleven-webrtc-token.php    # Standalone token proxy (no WordPress)
-├─ exp3test.glb               # GLB model
-├─ T_Ojos_BaseColor.png
-├─ T_Theets_BaseColor.png
-├─ T_Side_Box_BaseColor.png
-├─ Logo 01.png / Logo 02.png
+├─ eleven-webrtc-token.php    # Token proxy (PHP standalone)
+├─ exp3test.glb               # Main GLB model
+├─ caja.glb                   # Container “box” GLB
+├─ T_Theets_BaseColor.png     # Teeth texture
+├─ T_Side_Box_BaseColor.png   # Box texture
+├─ T_Ojos_BaseColor.png       # Eyes texture (if used)
+├─ Logo 01.png / Logo 02.png  # UI assets
 └─ (other assets…)
 ```
 
+Matches the current HTML/CSS/JS and referenced assets.
+
+---
+
 ## ⚙️ Requirements
 
-- **HTTPS** (recommended) for microphone access in Chrome.
-- Simple static server (Live Server, `http-server`, `python -m http.server`).
-- A backend to fetch ElevenLabs **conversation token**:
-  - **`eleven-webrtc-token.php`** (included), or
-  - Your **WordPress** REST endpoint.
+- **HTTPS** recommended for microphone access in Chrome.
+- A simple static server (Live Server, `http-server`, `python -m http.server`).
+- A backend to fetch the ElevenLabs **conversation token**. This project uses
+  `eleven-webrtc-token.php` next to `index.html`, fetched via `GET ?agent_id=...`.
+
+---
 
 ## 🚀 Run locally
 
 ```bash
 # Node
 npx http-server -p 8080
-# or Python 3
+
+# Python 3
 python -m http.server 8080
 ```
 
-Open the served URL (prefer HTTPS). Click **Connect mic** and select a microphone.
+Open the served URL (prefer **HTTPS**). The UI provides **Connect mic** and a microphone
+`<select>` after permission is granted.
 
-## 🔑 Configuration
+---
 
-In `app.js` check:
+## 🔑 `app.js` configuration
 
-```js
-const AGENT_ID = 'agent_XXXXXXXX';
-const TOKEN_URL = './eleven-webrtc-token.php'; // or your WP REST route
-const WP_BASE = 'https://your-wp-domain.com';
-```
+- **ElevenLabs agent**: set your `AGENT_ID` (placeholder currently present).
+- **Token proxy (PHP)**: internal constant uses `./eleven-webrtc-token.php` for token fetch.
+- **WordPress (optional)**: set `WP_BASE` if you integrate your own REST route.
+
+---
+
+## 🎛️ Lipsync & animation behavior
+
+- **Lipsync source**: fixed to **clip** mode; the talk clip’s weight is blended only while the
+  agent is “talking”.
+- **Agent voice detection**: polls the agent output level to toggle the talking state and compute
+  mouth openness.
+- **Jaw/teeth/lips/tongue safety**: limits and corrections (locks and clamps) keep the jaw centered,
+  prevent teeth separation at early openings, clamp lip offsets, and constrain tongue movement.
+- **Half‑duplex feel**: mouth opens with the agent’s output, keeping user mic gated while the agent
+  speaks (if you enabled that pattern in your UI).
+
+---
+
+## 🧩 Model & scene
+
+- Main model: `exp3test.glb` (auto 4:3 framing, cinematic lights, shadows).
+- **Box** (optional): `caja.glb` with `T_Side_Box_BaseColor.png`, size/offset/door alignment
+  configurable.
+- Teeth texture `T_Theets_BaseColor.png` auto‑applied to meshes matching “teeth/dientes”.
+
+---
 
 ## 🛠️ Troubleshooting
 
-### Mic devices not listed / Chrome doesn’t ask permission
-- Don’t ship a blocking header like `Permissions-Policy: microphone=()`.  
-  Allow at least self:
-  - **Nginx**
-    ```nginx
-    add_header Permissions-Policy 'microphone=(self)';
-    ```
-  - **Apache**
-    ```apache
-    Header set Permissions-Policy "microphone=(self)"
-    ```
-- Chrome shows device **labels only after** a successful `getUserMedia({audio:true})` grant.
+1) **Chrome won’t list mics / no prompt**  
+   - Avoid blocking headers like `Permissions-Policy: microphone=()`. Allow at least `self`.
+   - Device **labels** show only after a successful `getUserMedia` grant; the code requests and
+     refreshes the device list when permission is granted.
 
-### Secure context
-Use **HTTPS** (or `localhost`) for device APIs and to avoid silent failures.
+2) **Secure context**  
+   - Use **HTTPS** (or `localhost`) for device APIs.
 
-### CORS / MIME
-- Ensure proper MIME:
-  - `.glb` → `model/gltf-binary`
-  - `.wasm` → `application/wasm`
-  - `.ktx2` → `image/ktx2`
-- Open CORS for static assets if needed (see snippets above).
+3) **MIME/CORS for 3D assets**  
+   - Ensure correct types: `.glb → model/gltf-binary`, `.wasm → application/wasm`, `.ktx2 → image/ktx2`.
+   - If you rely on DRACO/KTX2 CDN decoders, confirm your host serves these files and CORS properly.
 
-### Hosting gotchas
-Disable rewrites that hijack static routes; verify WAF/ModSecurity isn’t blocking `.glb`/`.wasm`.
+---
 
 ## 📦 Deploy
 
-- **Static + PHP**: upload everything including the PHP token proxy.
+- **Static + PHP**: upload everything including `eleven-webrtc-token.php`.
 - **WordPress**: serve the static files and use your REST token endpoint.
-- Ensure **HTTPS**, **Permissions-Policy**, and **CORS** are correctly set.
+- Ensure **HTTPS**, **Permissions-Policy**, and **CORS**.
+
+---
 
 ## 🗒️ Changelog
 
-- **2025-10-06**: Split into `index.html`, `app.css`, `app.js`. README refreshed.
-- **2025-10-02**: Jaw/teeth controls and lipsync improvements.
+- **2025-10-06**: Split into `index.html`, `app.css`, `app.js`; lipsync source set to clip; PHP token proxy in use.
+- **2025-10-02**: Jaw/lips/teeth/tongue safety & tuning.
+
+---
 
 ## 📄 License & credits
 
-- Example code: MIT (change if needed).
-- Models/textures: verify you have rights.
+- Example code: MIT (adjust if needed).
+- Models/textures: ensure usage rights.
 - ElevenLabs WebRTC per ElevenLabs Terms.
+
+---
+
+# KRANG — 3D Avatar + ElevenLabs (WebRTC)
+**Lipsync + mandíbula + dientes + lengua**
+
+## 🧱 Estructura del proyecto
+
+```
+/ (root)
+├─ index.html                 # Shell + importmap + UI
+├─ app.css                    # Estilos
+├─ app.js                     # Lógica Three.js + ElevenLabs
+├─ eleven-webrtc-token.php    # Proxy de token (PHP standalone)
+├─ exp3test.glb               # Modelo GLB principal
+├─ caja.glb                   # GLB de la “caja” contenedora
+├─ T_Theets_BaseColor.png     # Textura dientes
+├─ T_Side_Box_BaseColor.png   # Textura de la “caja”
+├─ T_Ojos_BaseColor.png       # Textura ojos (si aplica)
+├─ Logo 01.png / Logo 02.png  # Activos UI
+└─ (otros assets…)
+```
+
+En línea con los archivos y referencias actuales en HTML/CSS/JS.
+
+---
+
+## ⚙️ Requisitos
+
+- **HTTPS** recomendado para acceso a micrófono en Chrome.
+- Servidor estático simple (Live Server, `http-server`, `python -m http.server`).
+- Backend que obtenga el **conversation token** de ElevenLabs. Aquí se usa
+  `eleven-webrtc-token.php` junto a `index.html`, consumido con `GET ?agent_id=...`.
+
+---
+
+## 🚀 Cómo ejecutar en local
+
+```bash
+# Node
+npx http-server -p 8080
+
+# Python 3
+python -m http.server 8080
+```
+
+Abre la URL servida (mejor **HTTPS**). La UI muestra **Connect mic** y un `<select>` de micrófono
+tras conceder el permiso.
+
+---
+
+## 🔑 Configuración en `app.js`
+
+- **Agente ElevenLabs**: define tu `AGENT_ID` (placeholder actual).
+- **Token proxy (PHP)**: constante interna usa `./eleven-webrtc-token.php` para pedir el token.
+- **WordPress (opcional)**: define `WP_BASE` si integras tu propio endpoint REST.
+
+---
+
+## 🎛️ Comportamiento del lipsync y animaciones
+
+- **Fuente de lipsync**: fijada a modo **clip**; el peso del clip se mezcla solo mientras el
+  agente “habla”.
+- **Detección de voz del agente**: se consulta el nivel de salida para alternar el estado de
+  “hablando” y calcular la apertura de la boca.
+- **Seguridad mandíbula/labios/dientes/lengua**: límites y correcciones para mantener mandíbula
+  centrada, evitar separación temprana de dientes, acotar desplazamientos de labios y restringir la
+  lengua.
+- **Sensación half‑duplex**: la boca abre con la voz del agente, manteniendo el mic del usuario
+  silenciado cuando el agente habla (si activaste ese patrón en la UI).
+
+---
+
+## 🧩 Modelo y escena
+
+- Modelo principal: `exp3test.glb` (encuadre automático 4:3, luces “cinemáticas”, sombras).
+- **Caja** (opcional): `caja.glb` con `T_Side_Box_BaseColor.png`, tamaño/offset/puerta configurables.
+- Textura de dientes `T_Theets_BaseColor.png` aplicada a mallas que coincidan con “teeth/dientes”.
+
+---
+
+## 🛠️ Solución de problemas
+
+1) **Chrome no lista micrófonos / no pide permiso**  
+   - Evita cabeceras que bloqueen permisos, p. ej. `Permissions-Policy: microphone=()`. Permite al menos `self`.
+   - Las **etiquetas** de dispositivos aparecen solo tras un `getUserMedia` exitoso; el código ya
+     solicita y refresca la lista cuando se concede el permiso.
+
+2) **Contexto seguro**  
+   - Usa **HTTPS** (o `localhost`) para las APIs de dispositivo.
+
+3) **MIME/CORS para assets 3D**  
+   - Tipos correctos: `.glb → model/gltf-binary`, `.wasm → application/wasm`, `.ktx2 → image/ktx2`.
+   - Si usas decoders DRACO/KTX2 por CDN, valida tipos y CORS en tu host.
+
+---
+
+## 📦 Deploy
+
+- **Estático + PHP**: sube todo incluyendo `eleven-webrtc-token.php`.
+- **WordPress**: sirve los archivos estáticos y usa tu endpoint REST de tokens.
+- Asegura **HTTPS**, **Permissions-Policy** y **CORS**.
+
+---
+
+## 🗒️ Changelog
+
+- **2025-10-06**: Separación en `index.html`, `app.css`, `app.js`; lipsync por clip; uso de proxy PHP.
+- **2025-10-02**: Ajustes de seguridad y afinación de mandíbula/labios/dientes/lengua.
+
+---
+
+## 📄 Licencia y créditos
+
+- Código de ejemplo: MIT (ajústalo si lo necesitas).
+- Modelos/texturas: verifica derechos de uso.
+- ElevenLabs WebRTC según los términos de ElevenLabs.
