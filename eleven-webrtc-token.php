@@ -10,7 +10,8 @@ declare(strict_types=1);
 
 // === CONFIG ===
 // 1) Si usas variable de entorno:
-$apiKey = getenv('ELEVEN_API_KEY');
+// $apiKey = getenv('ELEVEN_API_KEY');
+$apiKey = "sk_3c458d4d2d0978eb24116918e29b246bff3090f45aeb3ec8";
 
 // 2) O defínelo aquí (descomenta y reemplaza):
 // define('ELEVEN_API_KEY', 'TU_API_KEY_AQUI');
