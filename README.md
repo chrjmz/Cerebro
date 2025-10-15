@@ -1,4 +1,4 @@
-# KRANG — 3D Avatar + ElevenLabs (WebRTC)
+# Voice — 3D Avatar + ElevenLabs (WebRTC)
 **Lipsync + jaw + teeth + tongue**  
 *(Spanish version below)*
 
@@ -116,7 +116,7 @@ Open the served URL (prefer **HTTPS**). The UI provides **Connect mic** and a mi
 
 ---
 
-# KRANG — 3D Avatar + ElevenLabs (WebRTC)
+# Voice — 3D Avatar + ElevenLabs (WebRTC)
 **Lipsync + mandíbula + dientes + lengua**
 
 ## 🧱 Estructura del proyecto

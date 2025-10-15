@@ -49,7 +49,7 @@ const FOV = 40;
 const FIGURE_TILT_DEG = { x: -12, y: 0, z: 0 };
 
 // --- Tongue limits (caída/rotación/easing) ---
-const TONGUE_MAX_DOWN_M   = 0.193;   // caída máxima (metros) relativa a reposo
+const TONGUE_MAX_DOWN_M   = 1.193;   // caída máxima (metros) relativa a reposo
 const TONGUE_MAX_ROT_RAD  = 0.10;    // rotación máxima hacia abajo (~5.7°)
 const TONGUE_EASE         = 0.35;    // suavizado de entrada (0..1)
 
@@ -423,7 +423,7 @@ loader.load(GLB_URL, (gltf) => {
   }
 
   // NODOS
-  const ROOT_HINT = /\bKRANG_RIG(\.?\d+)?\b/i;
+  const ROOT_HINT = /\bVoice_RIG(\.?\d+)?\b/i;
   ROOT = findFirst(avatar, ['ROOT']) || findRegex(avatar, ROOT_HINT)[0] || avatar;
 
   DEF_HEAD = findFirst(avatar, ['DEF_HEAD_UP', 'DEF_HEAD']) || findRegex(avatar, /DEF[_-]?HEAD/i)[0];
